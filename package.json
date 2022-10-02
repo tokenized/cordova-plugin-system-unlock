@@ -1,9 +1,9 @@
 {
-  "name": "cordova-plugin-fingerprint-aio",
-  "version": "5.0.1",
-  "description": "Cordova plugin to use fingerprint authentication on Android and iOS",
+  "name": "cordova-plugin-system-unlock",
+  "version": "1.0.0",
+  "description": "Cordova plugin for managing secrets protected by iOS/Android biometrics and passcode",
   "cordova": {
-    "id": "cordova-plugin-fingerprint-aio",
+    "id": "cordova-plugin-system-unlock",
     "platforms": [
       "android",
       "ios"
@@ -11,46 +11,29 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/niklasmerz/cordova-plugin-fingerprint-aio"
+    "url": "git+https://github.com/tokenized/cordova-plugin-system-unlock"
   },
   "keywords": [
     "cordova",
     "plugin",
     "android",
+    "ios",
     "fingerprint",
-    "authentication",
+    "touchid",
+    "faceid",
+    "biometric",
+    "keychain",
+    "secret",
     "ecosystem:cordova",
     "cordova-android",
-    "cordova-ios",
-    "ios"
+    "cordova-ios"
   ],
-  "author": "Niklas Merz",
-  "funding": "https://github.com/sponsors/NiklasMerz",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/niklasmerz/cordova-plugin-fingerprint-aio/issues"
-  },
-  "homepage": "https://github.com/niklasmerz/cordova-plugin-fingerprint-aio#readme",
+  "homepage": "https://github.com/tokenized/cordova-plugin-system-unlock#readme",
   "devDependencies": {
-    "cordova-paramedic": "git+https://github.com/apache/cordova-paramedic",
-    "cordova-plugin-xml": "^0.1.2",
-    "eslint": "^6.5.1",
-    "jasmine": "^3.2.0"
-  },
-  "scripts": {
-    "test": "npm run eslint",
-    "eslint": "npx eslint www",
-    "test-travis": "npm run test-ios",
-    "test-appveyor": "npm run test-browser",
-    "test-local": "npm run test-browser && npm run test-android && npm run test-ios",
-    "test-android": "npx cordova-paramedic --platform android --plugin  $(pwd) --verbose",
-    "test-ios": "npx cordova-paramedic --platform ios --plugin  $(pwd) --verbose",
-    "test-windows": "npx cordova-paramedic --platform windows --plugin  $(pwd)",
-    "test-browser": "npx cordova-paramedic --platform browser --plugin  $(pwd)",
-    "test-saucelabs": "npm run test-saucelabs-ios && npm run test-saucelabs-android",
-    "test-saucelabs-ios": "npx cordova-paramedic --config ./pr/ios-10.0 --plugin  $(pwd) --shouldUseSauce",
-    "test-saucelabs-android": "npx cordova-paramedic --config ./pr/android-7.0 --plugin  $(pwd) --shouldUseSauce",
-    "plugin-version": "cordova-plugin-xml setVersion"
+    "eslint": "^8.24.0",
+    "eslint-config-prettier": "^8.5.0",
+    "prettier": "^2.7.1"
   },
   "engines": {
     "cordovaDependencies": {

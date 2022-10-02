@@ -1,22 +1,11 @@
 {
-    "env": {
-        "browser": true,
-        "commonjs": true,
-        "jasmine": true
-    },
-    "extends": "eslint:recommended",
-    "rules": {
-        "linebreak-style": [
-            "error",
-            "unix"
-        ],
-        "quotes": [
-            "error",
-            "double"
-        ],
-        "semi": [
-            "error",
-            "always"
-        ]
-    }
+  "parserOptions": {
+    "ecmaVersion": "latest"
+  },
+  "env": {
+    "es2022": true,
+    "browser": true,
+    "commonjs": true
+  },
+  "extends": "eslint:recommended"
 }
