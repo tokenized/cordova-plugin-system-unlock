@@ -23,6 +23,8 @@ let errorCodeMapping = [
 ]
 
 @objc(SystemUnlock) class SystemUnlock: CDVPlugin {
+    static var batchContext: LAContext?
+
     private func makeAuthPolicy(
         lockBehavior: String
     ) -> LAPolicy {
@@ -44,6 +46,7 @@ let errorCodeMapping = [
             options?["lockBehavior"] as! String? ?? "lockAfterUsePasscodeFallback"
 
         let authenticationContext = LAContext()
+
         var error: NSError?
         var available = authenticationContext.canEvaluatePolicy(
             makeAuthPolicy(lockBehavior: lockBehavior), error: &error)
@@ -95,7 +98,14 @@ let errorCodeMapping = [
         let lockBehavior =
             options?["lockBehavior"] as! String? ?? "lockAfterUsePasscodeFallback"
 
-        let authenticationContext = LAContext()
+        let batch = options?["batch"] as! String?
+        var authenticationContext = LAContext()
+        if batch == "continue", let previousContext = SystemUnlock.batchContext {
+            authenticationContext = previousContext
+        }
+        if batch == "start" {
+            SystemUnlock.batchContext = authenticationContext
+        }
 
         var reason = "Unlock this app"
         if let description = options?["description"] as! String? {
@@ -137,7 +147,7 @@ let errorCodeMapping = [
         )
     }
 
-    private func makeAuthContextForSecret(
+    private func makeInteractiveAuthContextForSecret(
         options: [String: Any]?
     ) -> LAContext {
         let context = LAContext()
@@ -155,6 +165,18 @@ let errorCodeMapping = [
         return context
     }
 
+    private func makeAuthContextForSecret(
+        options: [String: Any]?
+    ) -> LAContext {
+        let context = makeInteractiveAuthContextForSecret(options: options)
+
+        if options?["interactionNotAllowed"] as! Bool? ?? false {
+            context.interactionNotAllowed = true
+        }
+
+        return context
+    }
+
     @objc(setSecret:)
     func setSecret(_ command: CDVInvokedUrlCommand) {
         let options = command.arguments[0] as! [String: Any]?
@@ -162,7 +184,16 @@ let errorCodeMapping = [
         let lockBehavior =
             options?["lockBehavior"] as! String? ?? "lockAfterUsePasscodeFallback"
 
-        let context = makeAuthContextForSecret(options: options)
+        let batch = options?["batch"] as! String?
+        var context: LAContext
+        if batch == "continue", let previousContext = SystemUnlock.batchContext {
+            context = previousContext
+        } else {
+            context = makeAuthContextForSecret(options: options)
+        }
+        if batch == "start" {
+            SystemUnlock.batchContext = context
+        }
 
         if lockBehavior == "lockWithDevice" {
             setSecretInternal(command, context: context)
@@ -282,9 +313,20 @@ let errorCodeMapping = [
             secret = Secret(keyName: secretName)
         }
 
+        let batch = options?["batch"] as! String?
+        var context: LAContext
+        if batch == "continue", let previousContext = SystemUnlock.batchContext {
+            context = previousContext
+        } else {
+            context = makeAuthContextForSecret(options: options)
+        }
+        if batch == "start" {
+            SystemUnlock.batchContext = context
+        }
+
         var pluginResult: CDVPluginResult
         do {
-            let result = try secret.load(context: makeAuthContextForSecret(options: options))
+            let result = try secret.load(context: context)
             pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: result)
         } catch {
             var code = PluginError.BIOMETRIC_UNKNOWN_ERROR.rawValue
@@ -307,7 +349,16 @@ let errorCodeMapping = [
         let lockBehavior =
             options?["lockBehavior"] as! String? ?? "lockAfterUsePasscodeFallback"
 
-        let context = makeAuthContextForSecret(options: options)
+        let batch = options?["batch"] as! String?
+        var context: LAContext
+        if batch == "continue", let previousContext = SystemUnlock.batchContext {
+            context = previousContext
+        } else {
+            context = makeAuthContextForSecret(options: options)
+        }
+        if batch == "start" {
+            SystemUnlock.batchContext = context
+        }
 
         if lockBehavior == "lockWithDevice" {
             deleteSecretInternal(command, context: context)
@@ -358,7 +409,7 @@ let errorCodeMapping = [
 
         var pluginResult: CDVPluginResult
         do {
-            try secret.delete(context: makeAuthContextForSecret(options: options))
+            try secret.delete(context: context)
             pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: "Success")
         } catch {
             var code = PluginError.BIOMETRIC_UNKNOWN_ERROR.rawValue

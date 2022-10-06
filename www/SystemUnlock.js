@@ -56,8 +56,8 @@ class SystemUnlock {
 
   /**
    * @param {Object} options
-   * @param {"lockAfterUsePasscodeFallback" | "lockAfterUseBiometricOnly"} [options.lockBehavior="lockAfterUsePasscodeFallback"]
-   * @returns {Promise<boolean>}
+   * @param {'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
+   * @returns {Promise<'none' | 'finger' | 'face' | 'unknown'>}
    */
   async isAvailable(options) {
     return await this.execNative('isAvailable', options);
@@ -65,13 +65,14 @@ class SystemUnlock {
 
   /**
    * @param {Object} options
-   * @param {"lockAfterUsePasscodeFallback" | "lockAfterUseBiometricOnly"} [options.lockBehavior="lockAfterUsePasscodeFallback"]
+   * @param {'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
    * @param {string} [options.title]
    * @param {string} [options.subtitle]
    * @param {string} [options.description]
    * @param {string} [options.fallbackButtonTitle]
    * @param {string} [options.cancelButtonTitle]
    * @param {boolean} [options.confirmationRequired=true]
+   * @param {'start' | 'continue'} [options.batch]
    * @returns {Promise<void>}
    */
   async challenge(options) {
@@ -82,14 +83,16 @@ class SystemUnlock {
    * @param {Object} options
    * @param {string} [options.secretName="__aio_key"]
    * @param {string} options.secret
-   * @param {"sync" | "backup" | "oneDevice" | "onePasscode" | "oneBiometric"} [options.scope="onePasscode"]
-   * @param {"lockWithDevice" | "lockAfterUsePasscodeFallback" | "lockAfterUseBiometricOnly"} [options.lockBehavior="lockAfterUsePasscodeFallback"]
+   * @param {'sync' | 'backup' | 'oneDevice' | 'onePasscode' | 'oneBiometric'} [options.scope='onePasscode']
+   * @param {'lockWithDevice' | 'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
+   * @param {boolean} [options.interactionNotAllowed=false]
    * @param {string} [options.title]
    * @param {string} [options.subtitle]
    * @param {string} [options.description]
    * @param {string} [options.fallbackButtonTitle]
    * @param {string} [options.cancelButtonTitle]
    * @param {boolean} [options.confirmationRequired=true]
+   * @param {'start' | 'continue'} [options.batch]
    * @returns {Promise<void>}
    */
   async setSecret(options) {
@@ -108,12 +111,14 @@ class SystemUnlock {
   /**
    * @param {Object} options
    * @param {string} [options.secretName="__aio_key"]
+   * @param {boolean} [options.interactionNotAllowed=false]
    * @param {string} [options.title]
    * @param {string} [options.subtitle]
    * @param {string} [options.description]
    * @param {string} [options.fallbackButtonTitle]
    * @param {string} [options.cancelButtonTitle]
    * @param {boolean} [options.confirmationRequired=true]
+   * @param {'start' | 'continue'} [options.batch]
    * @returns {Promise<string>}
    */
   async getSecret(options) {
@@ -123,13 +128,15 @@ class SystemUnlock {
   /**
    * @param {Object} options
    * @param {string} [options.secretName="__aio_key"]
-   * @param {"lockWithDevice" | "lockAfterUsePasscodeFallback" | "lockAfterUseBiometricOnly"} [options.lockBehavior="lockAfterUsePasscodeFallback"]
+   * @param {'lockWithDevice' | 'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
+   * @param {boolean} [options.interactionNotAllowed=false]
    * @param {string} [options.title]
    * @param {string} [options.subtitle]
    * @param {string} [options.description]
    * @param {string} [options.fallbackButtonTitle]
    * @param {string} [options.cancelButtonTitle]
    * @param {boolean} [options.confirmationRequired=true]
+   * @param {'start' | 'continue'} [options.batch]
    * @returns {Promise<string>}
    */
   async deleteSecret(options) {
