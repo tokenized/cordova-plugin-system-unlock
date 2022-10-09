@@ -64,6 +64,13 @@ class SystemUnlock {
   }
 
   /**
+   * @returns {Promise<boolean>}
+   */
+  async isiCloudLoggedIn() {
+    return await this.execNative('isiCloudLoggedIn');
+  }
+
+  /**
    * @param {Object} options
    * @param {'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
    * @param {string} [options.title]

@@ -92,6 +92,17 @@ let errorCodeMapping = [
         commandDelegate.send(pluginResult, callbackId: command.callbackId)
     }
 
+    @objc(isiCloudLoggedIn:)
+    func isiCloudLoggedIn(_ command: CDVInvokedUrlCommand) {
+        var result = false
+        if FileManager.default.ubiquityIdentityToken != nil {
+            result = true
+        }
+
+        let pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: result)
+        commandDelegate.send(pluginResult, callbackId: command.callbackId)
+    }
+
     @objc(challenge:)
     func challenge(_ command: CDVInvokedUrlCommand) {
         let options = command.arguments[0] as! [String: Any]?
