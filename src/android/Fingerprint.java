@@ -1,16 +1,15 @@
 package de.niklasmerz.cordova.biometric;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.app.Activity;
-import android.content.Intent;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
-
 import androidx.biometric.BiometricManager;
+
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
 import org.apache.cordova.CordovaPlugin;
@@ -21,85 +20,99 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 public class Fingerprint extends CordovaPlugin {
-
     private static final String TAG = "Fingerprint";
     private static final int REQUEST_CODE_BIOMETRIC = 1;
 
+    private String applicationLabel;
     private CallbackContext mCallbackContext = null;
-    private PromptInfo.Builder mPromptInfoBuilder;
+
+    private CryptographyManager mCryptographyManager;
 
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
         Log.v(TAG, "Init Fingerprint");
-        mPromptInfoBuilder = new PromptInfo.Builder(
-            this.getApplicationLabel(cordova.getActivity())
-        );
+
+        applicationLabel = getApplicationLabel(cordova.getActivity());
+
+        mCryptographyManager = new CryptographyManagerImpl();
     }
 
     public boolean execute(final String action, JSONArray args, CallbackContext callbackContext) {
-
         this.mCallbackContext = callbackContext;
         Log.v(TAG, "Fingerprint action: " + action);
 
-        if ("authenticate".equals(action)) {
-            executeAuthenticate(args);
-            return true;
-
-        } else if ("registerBiometricSecret".equals(action)) {
-             executeRegisterBiometricSecret(args);
-             return true;
-
-         } else if ("loadBiometricSecret".equals(action)) {
-             executeLoadBiometricSecret(args);
-             return true;
-
-         } else if ("isAvailable".equals(action)) {
-            executeIsAvailable();
-            return true;
-
-        }
-        return false;
-    }
-
-    private void executeIsAvailable() {
+        // All methods require access to security checks
         PluginError error = canAuthenticate();
         if (error != null) {
             sendError(error);
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P){
-            sendSuccess("biometric");
-        } else {
-            sendSuccess("finger");
+            return true;
         }
-    }
-    private void executeRegisterBiometricSecret(JSONArray args) {
-        // should at least contains the secret
-        if (args == null) {
-            sendError(PluginError.BIOMETRIC_ARGS_PARSING_FAILED);
-            return;
+
+        // All other methods perform a challenge and/or action, with shared args
+        BiometricActivityType type = BiometricActivityType.fromJsonString(action);
+        if (type == null) {
+            // Unknown action
+            return false;
         }
-        this.runBiometricActivity(args, BiometricActivityType.REGISTER_SECRET);
+
+        PromptInfo parsedArgs = new PromptInfo.Builder(applicationLabel)
+            .parseArgs(args, type)
+            .build();
+
+        switch(type) {
+            case IS_AVAILABLE:
+                // canAuthenticate above already did the check
+                sendSuccess("biometric");
+                return true;
+            case HAS_SECRET:
+                // Checking for existence is always non-interactive
+                hasSecret(parsedArgs);
+                return true;
+            case SET_SECRET:
+                if (parsedArgs.getSecret() == null) {
+                    sendError(PluginError.BIOMETRIC_ARGS_PARSING_FAILED);
+                    return true;
+                }
+                break;
+        }
+
+        runBiometricActivity(parsedArgs);
+        return true;
     }
 
-    private void executeLoadBiometricSecret(JSONArray args) {
-        this.runBiometricActivity(args, BiometricActivityType.LOAD_SECRET);
-    }
-
-    private void executeAuthenticate(JSONArray args) {
-        this.runBiometricActivity(args, BiometricActivityType.JUST_AUTHENTICATE);
-    }
-
-    private void runBiometricActivity(JSONArray args, BiometricActivityType type) {
-        PluginError error = canAuthenticate();
-        if (error != null) {
-            sendError(error);
-            return;
+    private PluginError canAuthenticate() {
+        int error = BiometricManager.from(cordova.getContext())
+            .canAuthenticate();
+        switch (error) {
+            case BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE:
+            case BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE:
+                return PluginError.BIOMETRIC_HARDWARE_NOT_SUPPORTED;
+            case BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED:
+                return PluginError.BIOMETRIC_NOT_ENROLLED;
+            case BiometricManager.BIOMETRIC_SUCCESS:
+            default:
+                return null;
         }
+    }
+
+    private void hasSecret(PromptInfo promptInfo) {
+        try {
+            boolean result = mCryptographyManager.hasKey(promptInfo.getSecretName());
+            sendSuccess(result);
+        } catch (CryptoException e) {
+            sendError(e.getError());
+        } catch (Exception e) {
+            sendError(PluginError.BIOMETRIC_UNKNOWN_ERROR);
+        }
+    }
+
+    private void runBiometricActivity(PromptInfo promptInfo) {
         cordova.getActivity().runOnUiThread(() -> {
-            mPromptInfoBuilder.parseArgs(args, type);
             Intent intent = new Intent(cordova.getActivity().getApplicationContext(), BiometricActivity.class);
-            intent.putExtras(mPromptInfoBuilder.build().getBundle());
+            intent.putExtras(promptInfo.getBundle());
             this.cordova.startActivityForResult(this, intent, REQUEST_CODE_BIOMETRIC);
         });
+
         PluginResult pluginResult = new PluginResult(PluginResult.Status.NO_RESULT);
         pluginResult.setKeepCallback(true);
         this.mCallbackContext.sendPluginResult(pluginResult);
@@ -126,26 +139,22 @@ public class Fingerprint extends CordovaPlugin {
         }
     }
 
+    private void sendSuccess(String message) {
+        cordova.getActivity().runOnUiThread(() ->
+            this.mCallbackContext.success(message));
+    }
+
+    private void sendSuccess(boolean result) {
+        cordova.getActivity().runOnUiThread(() ->
+            this.mCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, result)));
+    }
+
     private void sendError(Intent intent) {
         if (intent != null) {
             Bundle extras = intent.getExtras();
             sendError(extras.getInt("code"), extras.getString("message"));
         } else {
             sendError(PluginError.BIOMETRIC_DISMISSED);
-        }
-    }
-
-    private PluginError canAuthenticate() {
-        int error = BiometricManager.from(cordova.getContext()).canAuthenticate();
-        switch (error) {
-            case BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE:
-            case BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE:
-                return PluginError.BIOMETRIC_HARDWARE_NOT_SUPPORTED;
-            case BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED:
-                return PluginError.BIOMETRIC_NOT_ENROLLED;
-            case BiometricManager.BIOMETRIC_SUCCESS:
-            default:
-                return null;
         }
     }
 
@@ -158,7 +167,7 @@ public class Fingerprint extends CordovaPlugin {
             PluginResult result = new PluginResult(PluginResult.Status.ERROR, resultJson);
             result.setKeepCallback(true);
             cordova.getActivity().runOnUiThread(() ->
-                    Fingerprint.this.mCallbackContext.sendPluginResult(result));
+                Fingerprint.this.mCallbackContext.sendPluginResult(result));
         } catch (JSONException e) {
             Log.e(TAG, e.getMessage(), e);
         }
@@ -168,16 +177,11 @@ public class Fingerprint extends CordovaPlugin {
         sendError(error.getValue(), error.getMessage());
     }
 
-    private void sendSuccess(String message) {
-        cordova.getActivity().runOnUiThread(() ->
-                this.mCallbackContext.success(message));
-    }
-
     private String getApplicationLabel(Context context) {
         try {
             PackageManager packageManager = context.getPackageManager();
             ApplicationInfo app = packageManager
-                    .getApplicationInfo(context.getPackageName(), 0);
+                .getApplicationInfo(context.getPackageName(), 0);
             return packageManager.getApplicationLabel(app).toString();
         } catch (PackageManager.NameNotFoundException e) {
             return null;

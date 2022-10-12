@@ -1,31 +1,39 @@
 package de.niklasmerz.cordova.biometric;
 
-import android.content.Context;
-
 import javax.crypto.Cipher;
 
 interface CryptographyManager {
-
     /**
-     * This method first gets or generates an instance of SecretKey and then initializes the Cipher
-     * with the key. The secret key uses [ENCRYPT_MODE][Cipher.ENCRYPT_MODE] is used.
+     * Returns whether a secure key with the given name exists in the Android keystore
      */
-    Cipher getInitializedCipherForEncryption(String keyName, boolean invalidateOnEnrollment, Context context) throws CryptoException;
+    boolean hasKey(String keyName) throws CryptoException;
 
     /**
-     * This method first gets or generates an instance of SecretKey and then initializes the Cipher
-     * with the key. The secret key uses [DECRYPT_MODE][Cipher.DECRYPT_MODE] is used.
+     * Creates a secure key in the Android keystore using the options specified,
+     * and returns a Cipher ready to encrypt data with the key. Note that if
+     * a key has previously been created it will be used without modification.
      */
-    Cipher getInitializedCipherForDecryption(String keyName, byte[] initializationVector, Context context) throws CryptoException;
+    Cipher getInitializedCipherForEncryption(PromptInfo promptInfo) throws CryptoException;
 
     /**
-     * The Cipher created with [getInitializedCipherForEncryption] is used here
+     * Encrypts data using a Cipher set up by [getInitializedCipherForEncryption]
      */
     EncryptedData encryptData(String plaintext, Cipher cipher) throws CryptoException;
 
     /**
-     * The Cipher created with [getInitializedCipherForDecryption] is used here
+     * Finds a secure key in the Android keystore and returns a Cipher ready to
+     * decrypt data with the key.
+     */
+    Cipher getInitializedCipherForDecryption(String keyName, byte[] initializationVector) throws CryptoException;
+
+    /**
+     * Decrypts data previously encrypted with [encryptData], using a Cipher set
+     * up by [getInitializedCipherForDecryption].
      */
     String decryptData(byte[] ciphertext, Cipher cipher) throws CryptoException;
 
+    /**
+     * Removes a secure key with the given name from the Android keystore
+     */
+    void removeKey(String keyName) throws CryptoException;
 }

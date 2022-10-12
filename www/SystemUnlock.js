@@ -67,19 +67,22 @@ class SystemUnlock {
    * @returns {Promise<boolean>}
    */
   async isiCloudLoggedIn() {
-    return await this.execNative('isiCloudLoggedIn');
+    if (window.device?.platform === 'iOS') {
+      return await this.execNative('isiCloudLoggedIn');
+    }
+    return false;
   }
 
   /**
    * @param {Object} options
    * @param {'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
+   * @param {boolean} [options.confirmationRequired=true]
+   * @param {'start' | 'continue'} [options.batch]
    * @param {string} [options.title]
    * @param {string} [options.subtitle]
    * @param {string} [options.description]
    * @param {string} [options.fallbackButtonTitle]
    * @param {string} [options.cancelButtonTitle]
-   * @param {boolean} [options.confirmationRequired=true]
-   * @param {'start' | 'continue'} [options.batch]
    * @returns {Promise<void>}
    */
   async challenge(options) {
@@ -93,13 +96,13 @@ class SystemUnlock {
    * @param {'sync' | 'backup' | 'oneDevice' | 'onePasscode' | 'oneBiometric'} [options.scope='onePasscode']
    * @param {'lockWithDevice' | 'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
    * @param {boolean} [options.interactionNotAllowed=false]
+   * @param {boolean} [options.confirmationRequired=true]
+   * @param {'start' | 'continue'} [options.batch]
    * @param {string} [options.title]
    * @param {string} [options.subtitle]
    * @param {string} [options.description]
    * @param {string} [options.fallbackButtonTitle]
    * @param {string} [options.cancelButtonTitle]
-   * @param {boolean} [options.confirmationRequired=true]
-   * @param {'start' | 'continue'} [options.batch]
    * @returns {Promise<void>}
    */
   async setSecret(options) {
@@ -119,13 +122,13 @@ class SystemUnlock {
    * @param {Object} options
    * @param {string} [options.secretName="__aio_key"]
    * @param {boolean} [options.interactionNotAllowed=false]
+   * @param {boolean} [options.confirmationRequired=true]
+   * @param {'start' | 'continue'} [options.batch]
    * @param {string} [options.title]
    * @param {string} [options.subtitle]
    * @param {string} [options.description]
    * @param {string} [options.fallbackButtonTitle]
    * @param {string} [options.cancelButtonTitle]
-   * @param {boolean} [options.confirmationRequired=true]
-   * @param {'start' | 'continue'} [options.batch]
    * @returns {Promise<string>}
    */
   async getSecret(options) {
@@ -137,13 +140,13 @@ class SystemUnlock {
    * @param {string} [options.secretName="__aio_key"]
    * @param {'lockWithDevice' | 'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
    * @param {boolean} [options.interactionNotAllowed=false]
+   * @param {boolean} [options.confirmationRequired=true]
+   * @param {'start' | 'continue'} [options.batch]
    * @param {string} [options.title]
    * @param {string} [options.subtitle]
    * @param {string} [options.description]
    * @param {string} [options.fallbackButtonTitle]
    * @param {string} [options.cancelButtonTitle]
-   * @param {boolean} [options.confirmationRequired=true]
-   * @param {'start' | 'continue'} [options.batch]
    * @returns {Promise<string>}
    */
   async deleteSecret(options) {

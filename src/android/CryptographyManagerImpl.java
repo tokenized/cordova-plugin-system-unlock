@@ -1,28 +1,22 @@
 package de.niklasmerz.cordova.biometric;
 
-import android.content.Context;
 import android.os.Build;
-import android.security.KeyPairGeneratorSpec;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
-import androidx.annotation.RequiresApi;
 
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
-import java.util.Calendar;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
-import javax.security.auth.x500.X500Principal;
 
 class CryptographyManagerImpl implements CryptographyManager {
-
     private static final int KEY_SIZE = 256;
     private static final String ANDROID_KEYSTORE = "AndroidKeyStore";
     private static final String ENCRYPTION_PADDING = "NoPadding"; // KeyProperties.ENCRYPTION_PADDING_NONE
@@ -35,64 +29,62 @@ class CryptographyManagerImpl implements CryptographyManager {
         return Cipher.getInstance(transformation);
     }
 
-    private SecretKey getOrCreateSecretKey(String keyName, boolean invalidateOnEnrollment, Context context) throws CryptoException {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return getOrCreateSecretKeyNew(keyName, invalidateOnEnrollment);
-        } else {
-            return getOrCreateSecretKeyOld(keyName, context);
-        }
-    }
-
-    private SecretKey getOrCreateSecretKeyOld(String keyName, Context context) throws CryptoException {
-        Calendar start = Calendar.getInstance();
-        Calendar end = Calendar.getInstance();
-        end.add(Calendar.YEAR, 1);
+    private SecretKey getOrCreateSecretKey(PromptInfo promptInfo) throws CryptoException {
         try {
-            KeyPairGeneratorSpec keySpec = new KeyPairGeneratorSpec.Builder(context)
-                    .setAlias(keyName)
-                    .setSubject(new X500Principal("CN=FINGERPRINT_AIO ," +
-                            " O=FINGERPRINT_AIO" +
-                            " C=World"))
-                    .setSerialNumber(BigInteger.ONE)
-                    .setStartDate(start.getTime())
-                    .setEndDate(end.getTime())
-                    .build();
-            KeyGenerator kg = KeyGenerator.getInstance(KEY_ALGORITHM_AES, ANDROID_KEYSTORE);
-            kg.init(keySpec);
-            return kg.generateKey();
-        } catch (Exception e) {
-            throw new CryptoException(e.getMessage(), e);
-        }
-    }
+            String keyName = promptInfo.getSecretName();
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    private SecretKey getOrCreateSecretKeyNew(String keyName, boolean invalidateOnEnrollment) throws CryptoException {
-        try {
-            // If Secretkey was previously created for that keyName, then grab and return it.
             KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
             keyStore.load(null); // Keystore must be loaded before it can be accessed
 
-
-            SecretKey key = (SecretKey) keyStore.getKey(keyName, null);
+            SecretKey key = (SecretKey)keyStore.getKey(keyName, null);
             if (key != null) {
                 return key;
             }
 
-            // if you reach here, then a new SecretKey must be generated for that keyName
-            KeyGenParameterSpec.Builder keyGenParamsBuilder = new KeyGenParameterSpec.Builder(keyName,
-                    KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
-                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                    .setKeySize(KEY_SIZE)
-                    .setUserAuthenticationRequired(true);
+            KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(
+                keyName,
+                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(KEY_SIZE)
+                .setUserAuthenticationRequired(true)
+                .setInvalidatedByBiometricEnrollment(
+                    promptInfo.getScope() == SecretScope.ONE_BIOMETRIC);
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                keyGenParamsBuilder.setInvalidatedByBiometricEnrollment(invalidateOnEnrollment);
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                if (promptInfo.getLockBehavior() == LockBehavior.LOCK_WITH_DEVICE) {
+                    builder.setUserAuthenticationValidityDurationSeconds(24 * 60 * 60);
+                } else {
+                    builder.setUserAuthenticationValidityDurationSeconds(60 * 5);
+                }
+            } else {
+                switch (promptInfo.getLockBehavior()) {
+                    case LOCK_WITH_DEVICE:
+                        builder.setUserAuthenticationParameters(
+                            24 * 60 * 60,
+                            KeyProperties.AUTH_BIOMETRIC_STRONG
+                                | KeyProperties.AUTH_DEVICE_CREDENTIAL
+                        );
+                        break;
+                    case LOCK_AFTER_USE_PASSCODE_FALLBACK:
+                        builder.setUserAuthenticationParameters(
+                            60 * 5,
+                            KeyProperties.AUTH_BIOMETRIC_STRONG
+                                | KeyProperties.AUTH_DEVICE_CREDENTIAL
+                        );
+                        break;
+                    case LOCK_AFTER_USE_BIOMETRIC_ONLY:
+                        builder.setUserAuthenticationParameters(
+                            60 * 5,
+                            KeyProperties.AUTH_BIOMETRIC_STRONG
+                        );
+                        break;
+                }
             }
 
-            KeyGenerator keyGenerator = KeyGenerator.getInstance(KEY_ALGORITHM_AES,
-                    ANDROID_KEYSTORE);
-            keyGenerator.init(keyGenParamsBuilder.build());
+            KeyGenerator keyGenerator = KeyGenerator.getInstance(KEY_ALGORITHM_AES, ANDROID_KEYSTORE);
+            keyGenerator.init(builder.build());
 
             return keyGenerator.generateKey();
         } catch (Exception e) {
@@ -101,58 +93,69 @@ class CryptographyManagerImpl implements CryptographyManager {
     }
 
     @Override
-    public Cipher getInitializedCipherForEncryption(String keyName, boolean invalidateOnEnrollment, Context context) throws CryptoException {
+    public boolean hasKey(String keyName) throws CryptoException {
         try {
-            Cipher cipher = getCipher();
-            SecretKey secretKey = getOrCreateSecretKey(keyName, invalidateOnEnrollment, context);
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-            return cipher;
+            KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+            keyStore.load(null);
+            return keyStore.containsAlias(keyName);
         } catch (Exception e) {
-            try {
-                handleException(e, keyName);
-            } catch (KeyInvalidatedException kie) {
-                return getInitializedCipherForEncryption(keyName, invalidateOnEnrollment, context);
-            }
             throw new CryptoException(e.getMessage(), e);
-        }
-    }
-
-    private void handleException(Exception e, String keyName) throws CryptoException {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                && e instanceof KeyPermanentlyInvalidatedException) {
-            removeKey(keyName);
-            throw new KeyInvalidatedException();
         }
     }
 
     @Override
-    public Cipher getInitializedCipherForDecryption(String keyName, byte[] initializationVector, Context context) throws CryptoException {
+    public Cipher getInitializedCipherForEncryption(PromptInfo promptInfo) throws CryptoException {
         try {
-            Cipher cipher = getCipher();
-            SecretKey secretKey = getOrCreateSecretKey(keyName, true, context);
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(128, initializationVector));
-            return cipher;
+            try {
+                return tryInitializeCipherForEncryption(promptInfo);
+            } catch (KeyPermanentlyInvalidatedException e) {
+                // If existing key is invalidated, delete and try again
+                removeKey(promptInfo.getSecretName());
+                return tryInitializeCipherForEncryption(promptInfo);
+            }
+        } catch (CryptoException e) {
+            throw e;
         } catch (Exception e) {
-            handleException(e, keyName);
             throw new CryptoException(e.getMessage(), e);
         }
     }
 
-    private void removeKey(String keyName) throws CryptoException {
-        try {
-            KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
-            keyStore.load(null); // Keystore must be loaded before it can be accessed
-            keyStore.deleteEntry(keyName);
-        } catch (Exception e) {
-            throw new CryptoException(e.getMessage(), e);
-        }
+    private Cipher tryInitializeCipherForEncryption(PromptInfo promptInfo)
+            throws InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, CryptoException {
+        Cipher cipher = getCipher();
+        SecretKey secretKey = getOrCreateSecretKey(promptInfo);
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        return cipher;
     }
 
     @Override
     public EncryptedData encryptData(String plaintext, Cipher cipher) throws CryptoException {
         try {
-            byte[] ciphertext = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+            byte[] ciphertext = cipher.doFinal(
+                plaintext.getBytes(StandardCharsets.UTF_8));
             return new EncryptedData(ciphertext, cipher.getIV());
+        } catch (Exception e) {
+            throw new CryptoException(e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Cipher getInitializedCipherForDecryption(String keyName, byte[] initializationVector) throws CryptoException {
+        try {
+            KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+            keyStore.load(null);
+            SecretKey secretKey = (SecretKey)keyStore.getKey(keyName, null);
+            if (secretKey == null) {
+                throw new CryptoException(PluginError.BIOMETRIC_NO_SECRET_FOUND);
+            }
+
+            Cipher cipher = getCipher();
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(128, initializationVector));
+            return cipher;
+        } catch (CryptoException e) {
+            throw e;
+        } catch (KeyPermanentlyInvalidatedException e) {
+            throw new KeyInvalidatedException();
         } catch (Exception e) {
             throw new CryptoException(e.getMessage(), e);
         }
@@ -163,6 +166,17 @@ class CryptographyManagerImpl implements CryptographyManager {
         try {
             byte[] plaintext = cipher.doFinal(ciphertext);
             return new String(plaintext, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new CryptoException(e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void removeKey(String keyName) throws CryptoException {
+        try {
+            KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+            keyStore.load(null);
+            keyStore.deleteEntry(keyName);
         } catch (Exception e) {
             throw new CryptoException(e.getMessage(), e);
         }

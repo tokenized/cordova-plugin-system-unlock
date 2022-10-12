@@ -5,24 +5,60 @@ import android.os.Bundle;
 import org.json.JSONArray;
 
 class PromptInfo {
-
-    private static final String DISABLE_BACKUP = "disableBackup";
+    private static final String BIOMETRIC_ACTIVITY_TYPE = "biometricActivityType";
+    private static final String SECRET_NAME = "secretName";
+    private static final String SECRET = "secret";
+    private static final String SCOPE = "scope";
+    private static final String LOCK_BEHAVIOR = "lockBehavior";
+    private static final String NON_INTERACTIVE = "interactionNotAllowed";
+    private static final String CONFIRMATION_REQUIRED = "confirmationRequired";
+    private static final String BATCH = "batch";
     private static final String TITLE = "title";
     private static final String SUBTITLE = "subtitle";
     private static final String DESCRIPTION = "description";
     private static final String FALLBACK_BUTTON_TITLE = "fallbackButtonTitle";
     private static final String CANCEL_BUTTON_TITLE = "cancelButtonTitle";
-    private static final String CONFIRMATION_REQUIRED = "confirmationRequired";
-    private static final String INVALIDATE_ON_ENROLLMENT = "invalidateOnEnrollment";
-    private static final String SECRET = "secret";
-    private static final String BIOMETRIC_ACTIVITY_TYPE = "biometricActivityType";
+
+    private static final String DEFAULT_SECRET_NAME = "__aio_secret_key";
 
     static final String SECRET_EXTRA = "secret";
 
     private Bundle bundle = new Bundle();
 
+    BiometricActivityType getType() {
+        return BiometricActivityType.fromValue(bundle.getInt(BIOMETRIC_ACTIVITY_TYPE));
+    }
+
     Bundle getBundle() {
         return bundle;
+    }
+
+    String getSecretName() {
+        return bundle.getString(SECRET_NAME);
+    }
+
+    String getSecret() {
+        return bundle.getString(SECRET);
+    }
+
+    SecretScope getScope() {
+        return SecretScope.fromValue(bundle.getInt(SCOPE));
+    }
+
+    LockBehavior getLockBehavior() {
+        return LockBehavior.fromValue(bundle.getInt(LOCK_BEHAVIOR));
+    }
+
+    boolean getInteractionNotAllowed() {
+        return bundle.getBoolean(NON_INTERACTIVE);
+    }
+
+    boolean getConfirmationRequired() {
+        return bundle.getBoolean(CONFIRMATION_REQUIRED);
+    }
+
+    ActionBatchControl getBatch() {
+        return ActionBatchControl.fromValue(bundle.getInt(BATCH));
     }
 
     String getTitle() {
@@ -37,10 +73,6 @@ class PromptInfo {
         return bundle.getString(DESCRIPTION);
     }
 
-    boolean isDeviceCredentialAllowed() {
-        return !bundle.getBoolean(DISABLE_BACKUP);
-    }
-
     String getFallbackButtonTitle() {
         return bundle.getString(FALLBACK_BUTTON_TITLE);
     }
@@ -49,42 +81,29 @@ class PromptInfo {
         return bundle.getString(CANCEL_BUTTON_TITLE);
     }
 
-    boolean getConfirmationRequired() {
-        return bundle.getBoolean(CONFIRMATION_REQUIRED);
-    }
-
-    String getSecret() {
-        return bundle.getString(SECRET);
-    }
-
-    boolean invalidateOnEnrollment() {
-        return bundle.getBoolean(INVALIDATE_ON_ENROLLMENT);
-    }
-
-    BiometricActivityType getType() {
-        return BiometricActivityType.fromValue(bundle.getInt(BIOMETRIC_ACTIVITY_TYPE));
-    }
-
     public static final class Builder {
-        private static final String TAG = "PromptInfo.Builder";
+        private String defaultTitle = "App unlock";
+
         private Bundle bundle;
-        private boolean disableBackup = false;
-        private String title;
+        private BiometricActivityType type = null;
+        private String secretName = DEFAULT_SECRET_NAME;
+        private String secret = null;
+        private SecretScope scope = SecretScope.ONE_PASSCODE;
+        private LockBehavior lockBehavior = LockBehavior.LOCK_AFTER_USE_PASSCODE_FALLBACK;
+        private boolean interactionNotAllowed = false;
+        private boolean confirmationRequired = true;
+        private ActionBatchControl batch = null;
+        private String title = "App unlock";
         private String subtitle = null;
         private String description = null;
         private String fallbackButtonTitle = "Use backup";
         private String cancelButtonTitle = "Cancel";
-        private boolean confirmationRequired = true;
-        private boolean invalidateOnEnrollment = false;
-        private String secret = null;
-        private BiometricActivityType type = null;
 
         Builder(String applicationLabel) {
-            if (applicationLabel == null) {
-                title = "Biometric Sign On";
-            } else {
-                title = applicationLabel + " Biometric Sign On";
+            if (applicationLabel != null) {
+                defaultTitle = applicationLabel + " unlock";
             }
+            title = defaultTitle;
         }
 
         Builder(Bundle bundle) {
@@ -100,34 +119,48 @@ class PromptInfo {
             }
 
             Bundle bundle = new Bundle();
+            bundle.putInt(BIOMETRIC_ACTIVITY_TYPE, this.type.getValue());
+            bundle.putString(SECRET_NAME, this.secretName);
+            bundle.putString(SECRET, this.secret);
+            bundle.putInt(SCOPE, this.scope.getValue());
+            bundle.putInt(LOCK_BEHAVIOR, this.lockBehavior.getValue());
+            bundle.putBoolean(NON_INTERACTIVE, this.interactionNotAllowed);
+            bundle.putBoolean(CONFIRMATION_REQUIRED, this.confirmationRequired);
+            bundle.putInt(BATCH, this.batch.getValue());
             bundle.putString(SUBTITLE, this.subtitle);
             bundle.putString(TITLE, this.title);
             bundle.putString(DESCRIPTION, this.description);
             bundle.putString(FALLBACK_BUTTON_TITLE, this.fallbackButtonTitle);
             bundle.putString(CANCEL_BUTTON_TITLE, this.cancelButtonTitle);
-            bundle.putString(SECRET, this.secret);
-            bundle.putBoolean(DISABLE_BACKUP, this.disableBackup);
-            bundle.putBoolean(CONFIRMATION_REQUIRED, this.confirmationRequired);
-            bundle.putBoolean(INVALIDATE_ON_ENROLLMENT, this.invalidateOnEnrollment);
-            bundle.putInt(BIOMETRIC_ACTIVITY_TYPE, this.type.getValue());
             promptInfo.bundle = bundle;
 
             return promptInfo;
         }
 
-        void parseArgs(JSONArray jsonArgs, BiometricActivityType type) {
+        Builder parseArgs(JSONArray jsonArgs, BiometricActivityType type) {
             this.type = type;
 
             Args args = new Args(jsonArgs);
-            disableBackup = args.getBoolean(DISABLE_BACKUP, disableBackup);
-            title = args.getString(TITLE, title);
-            subtitle = args.getString(SUBTITLE, subtitle);
-            description = args.getString(DESCRIPTION, description);
-            fallbackButtonTitle = args.getString(FALLBACK_BUTTON_TITLE, "Use Backup");
-            cancelButtonTitle = args.getString(CANCEL_BUTTON_TITLE, "Cancel");
-            confirmationRequired = args.getBoolean(CONFIRMATION_REQUIRED, confirmationRequired);
-            invalidateOnEnrollment = args.getBoolean(INVALIDATE_ON_ENROLLMENT, false);
+            secretName = args.getString(SECRET_NAME, DEFAULT_SECRET_NAME);
             secret = args.getString(SECRET, null);
+            scope = SecretScope.fromJsonString(
+                args.getString(SCOPE, "onePasscode")
+            );
+            lockBehavior = LockBehavior.fromJsonString(
+                args.getString(LOCK_BEHAVIOR, "lockAfterUsePasscodeFallback")
+            );
+            interactionNotAllowed = args.getBoolean(NON_INTERACTIVE, false);
+            confirmationRequired = args.getBoolean(CONFIRMATION_REQUIRED, true);
+            batch = ActionBatchControl.fromJsonString(
+                args.getString(BATCH, null)
+            );
+            title = args.getString(TITLE, defaultTitle);
+            subtitle = args.getString(SUBTITLE, null);
+            description = args.getString(DESCRIPTION, null);
+            fallbackButtonTitle = args.getString(FALLBACK_BUTTON_TITLE, "Use backup");
+            cancelButtonTitle = args.getString(CANCEL_BUTTON_TITLE, "Cancel");
+
+            return this;
         }
     }
 }

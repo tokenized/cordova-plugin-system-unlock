@@ -6,9 +6,8 @@ import android.preference.PreferenceManager;
 import android.util.Base64;
 
 class EncryptedData {
-
-    private static final String CIPHERTEXT_KEY_NAME = "__biometric-aio-ciphertext";
-    private static final String IV_KEY_NAME = "__biometric-aio-iv";
+    private static final String DEFAULT_CIPHERTEXT_KEY_NAME = "__biometric-aio-ciphertext";
+    private static final String DEFAULT_IV_KEY_NAME = "__biometric-aio-iv";
 
     private byte[] ciphertext;
     private byte[] initializationVector;
@@ -19,29 +18,52 @@ class EncryptedData {
     }
 
     static byte[] loadInitializationVector(Context context) throws CryptoException {
-        return load(IV_KEY_NAME, context);
+        return load(DEFAULT_IV_KEY_NAME, context);
+    }
+    static byte[] loadInitializationVector(String keyName, Context context) throws CryptoException {
+        if (keyName == null) {
+            return loadInitializationVector(context);
+        }
+        return load("SystemLock_enc_" + keyName, context);
     }
 
     static byte[] loadCiphertext(Context context) throws CryptoException {
-        return load(CIPHERTEXT_KEY_NAME, context);
+        return load(DEFAULT_CIPHERTEXT_KEY_NAME, context);
+    }
+    static byte[] loadCiphertext(String keyName, Context context) throws CryptoException {
+        if (keyName == null) {
+            return loadCiphertext(context);
+        }
+        return load("SystemLock_iv_" + keyName, context);
     }
 
     void save(Context context) {
-        save(IV_KEY_NAME, initializationVector, context);
-        save(CIPHERTEXT_KEY_NAME, ciphertext, context);
+        save(DEFAULT_IV_KEY_NAME, initializationVector, context);
+        save(DEFAULT_CIPHERTEXT_KEY_NAME, ciphertext, context);
+    }
+    void save(String keyName, Context context) {
+        if (keyName == null) {
+            save(context);
+            return;
+        }
+        save("SystemLock_iv_" + keyName, initializationVector, context);
+        save("SystemLock_enc_" + keyName, ciphertext, context);
     }
 
-    private void save(String key, byte[] value, Context context) {
+    private void save(String keyName, byte[] value, Context context) {
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
-        preferences.edit()
-                .putString(key, Base64.encodeToString(value, Base64.DEFAULT))
-                .apply();
+        preferences
+            .edit()
+            .putString(keyName, Base64.encodeToString(value, Base64.DEFAULT))
+            .apply();
     }
 
-    private static byte[] load(String key, Context context) throws CryptoException {
+    private static byte[] load(String keyName, Context context) throws CryptoException {
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
-        String res = preferences.getString(key, null);
-        if (res == null) throw new CryptoException(PluginError.BIOMETRIC_NO_SECRET_FOUND);
+        String res = preferences.getString(keyName, null);
+        if (res == null) {
+            throw new CryptoException(PluginError.BIOMETRIC_NO_SECRET_FOUND);
+        }
         return Base64.decode(res, Base64.DEFAULT);
     }
 }
