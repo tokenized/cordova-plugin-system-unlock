@@ -26,6 +26,17 @@ public class Args {
         return defaultValue;
     }
 
+    public int getInt(String name, int defaultValue) {
+        try {
+            if (getArgsObject().has(name)){
+                return getArgsObject().getInt(name);
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Can't parse '" + name + "'. Default will be used.", e);
+        }
+        return defaultValue;
+    }
+
     public String getString(String name, String defaultValue) {
         try {
             if (getArgsObject().optString(name) != null

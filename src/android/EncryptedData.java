@@ -21,20 +21,20 @@ class EncryptedData {
         return load(DEFAULT_IV_KEY_NAME, context);
     }
     static byte[] loadInitializationVector(String keyName, Context context) throws CryptoException {
-        if (keyName == null) {
+        if (keyName == null || PromptInfo.DEFAULT_SECRET_NAME.equals(keyName)) {
             return loadInitializationVector(context);
         }
-        return load("SystemLock_enc_" + keyName, context);
+        return load("SystemLock_iv_" + keyName, context);
     }
 
     static byte[] loadCiphertext(Context context) throws CryptoException {
         return load(DEFAULT_CIPHERTEXT_KEY_NAME, context);
     }
     static byte[] loadCiphertext(String keyName, Context context) throws CryptoException {
-        if (keyName == null) {
+        if (keyName == null || PromptInfo.DEFAULT_SECRET_NAME.equals(keyName)) {
             return loadCiphertext(context);
         }
-        return load("SystemLock_iv_" + keyName, context);
+        return load("SystemLock_enc_" + keyName, context);
     }
 
     void save(Context context) {
@@ -42,7 +42,7 @@ class EncryptedData {
         save(DEFAULT_CIPHERTEXT_KEY_NAME, ciphertext, context);
     }
     void save(String keyName, Context context) {
-        if (keyName == null) {
+        if (keyName == null || PromptInfo.DEFAULT_SECRET_NAME.equals(keyName)) {
             save(context);
             return;
         }

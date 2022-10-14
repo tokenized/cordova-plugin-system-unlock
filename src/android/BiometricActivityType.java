@@ -1,5 +1,7 @@
 package de.niklasmerz.cordova.biometric;
 
+import java.util.Objects;
+
 public enum BiometricActivityType {
     IS_AVAILABLE(1, "isAvailable"),
     CHALLENGE(2, "challenge"),
@@ -35,7 +37,7 @@ public enum BiometricActivityType {
 
     public static BiometricActivityType fromJsonString(String jsonString) {
         for (BiometricActivityType scope : values()) {
-            if (scope.getJsonString().equals(jsonString)) {
+            if (Objects.equals(scope.getJsonString(), jsonString)) {
                 return scope;
             }
         }

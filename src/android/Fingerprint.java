@@ -5,7 +5,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.security.keystore.UserNotAuthenticatedException;
 import android.util.Log;
 
 import androidx.biometric.BiometricManager;
@@ -18,6 +20,8 @@ import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import javax.crypto.Cipher;
 
 public class Fingerprint extends CordovaPlugin {
     private static final String TAG = "Fingerprint";
@@ -62,7 +66,11 @@ public class Fingerprint extends CordovaPlugin {
         switch(type) {
             case IS_AVAILABLE:
                 // canAuthenticate above already did the check
-                sendSuccess("biometric");
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                    sendSuccess("biometric");
+                } else {
+                    sendSuccess("biometric+passcode");
+                }
                 return true;
             case HAS_SECRET:
                 // Checking for existence is always non-interactive
@@ -81,25 +89,44 @@ public class Fingerprint extends CordovaPlugin {
     }
 
     private PluginError canAuthenticate() {
-        int error = BiometricManager.from(cordova.getContext())
-            .canAuthenticate();
+        int error;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            error = BiometricManager.from(cordova.getContext())
+                .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG);
+        } else {
+            error = BiometricManager.from(cordova.getContext())
+                .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG
+                    | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
+        }
         switch (error) {
-            case BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE:
-            case BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE:
-                return PluginError.BIOMETRIC_HARDWARE_NOT_SUPPORTED;
+            case BiometricManager.BIOMETRIC_SUCCESS:
+                return null;
             case BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED:
                 return PluginError.BIOMETRIC_NOT_ENROLLED;
-            case BiometricManager.BIOMETRIC_SUCCESS:
+            case BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE:
+            case BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE:
+            case BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED:
+            case BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED:
+            case BiometricManager.BIOMETRIC_STATUS_UNKNOWN:
             default:
-                return null;
+                return PluginError.BIOMETRIC_HARDWARE_NOT_SUPPORTED;
         }
     }
 
     private void hasSecret(PromptInfo promptInfo) {
         try {
-            boolean result = mCryptographyManager.hasKey(promptInfo.getSecretName());
-            sendSuccess(result);
+            byte[] initializationVector = EncryptedData
+                .loadInitializationVector(
+                        promptInfo.getSecretName(),
+                        cordova.getActivity().getApplicationContext()
+                );
+            Cipher cipher = mCryptographyManager
+                .getInitializedCipherForDecryption(promptInfo.getSecretName(), initializationVector);
+            sendSuccess(true);
         } catch (CryptoException e) {
+            if (e.getCause() instanceof UserNotAuthenticatedException) {
+                sendSuccess(true);
+            }
             sendError(e.getError());
         } catch (Exception e) {
             sendError(PluginError.BIOMETRIC_UNKNOWN_ERROR);

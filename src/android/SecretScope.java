@@ -1,10 +1,12 @@
 package de.niklasmerz.cordova.biometric;
 
+import java.util.Objects;
+
 public enum SecretScope {
     SYNC(1, "sync"),
     BACKUP(2, "backup"),
     ONE_DEVICE(3, "oneDevice"),
-    ONE_PASSCODE(4, "onePasscode"),
+    ONE_PASSCODE(4, "activeSystemLock"),
     ONE_BIOMETRIC(5, "oneBiometric");
 
     private int value;
@@ -34,7 +36,7 @@ public enum SecretScope {
 
     public static SecretScope fromJsonString(String jsonString) {
         for (SecretScope scope : values()) {
-            if (scope.getJsonString().equals(jsonString)) {
+            if (Objects.equals(scope.getJsonString(), jsonString)) {
                 return scope;
             }
         }

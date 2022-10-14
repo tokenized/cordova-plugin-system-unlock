@@ -4,11 +4,12 @@ import android.os.Build;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
+import android.util.Log;
 
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -17,6 +18,8 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
 class CryptographyManagerImpl implements CryptographyManager {
+    private static final String TAG = "CryptographyManagerImpl";
+
     private static final int KEY_SIZE = 256;
     private static final String ANDROID_KEYSTORE = "AndroidKeyStore";
     private static final String ENCRYPTION_PADDING = "NoPadding"; // KeyProperties.ENCRYPTION_PADDING_NONE
@@ -54,7 +57,8 @@ class CryptographyManagerImpl implements CryptographyManager {
 
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
                 if (promptInfo.getLockBehavior() == LockBehavior.LOCK_WITH_DEVICE) {
-                    builder.setUserAuthenticationValidityDurationSeconds(24 * 60 * 60);
+                    builder.setUserAuthenticationValidityDurationSeconds(
+                        promptInfo.getAndroidAutoLockTimeSeconds());
                 } else {
                     builder.setUserAuthenticationValidityDurationSeconds(60 * 5);
                 }
@@ -62,12 +66,12 @@ class CryptographyManagerImpl implements CryptographyManager {
                 switch (promptInfo.getLockBehavior()) {
                     case LOCK_WITH_DEVICE:
                         builder.setUserAuthenticationParameters(
-                            24 * 60 * 60,
+                            promptInfo.getAndroidAutoLockTimeSeconds(),
                             KeyProperties.AUTH_BIOMETRIC_STRONG
                                 | KeyProperties.AUTH_DEVICE_CREDENTIAL
                         );
                         break;
-                    case LOCK_AFTER_USE_PASSCODE_FALLBACK:
+                    case LOCK_AFTER_USE:
                         builder.setUserAuthenticationParameters(
                             60 * 5,
                             KeyProperties.AUTH_BIOMETRIC_STRONG
@@ -88,17 +92,7 @@ class CryptographyManagerImpl implements CryptographyManager {
 
             return keyGenerator.generateKey();
         } catch (Exception e) {
-            throw new CryptoException(e.getMessage(), e);
-        }
-    }
-
-    @Override
-    public boolean hasKey(String keyName) throws CryptoException {
-        try {
-            KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
-            keyStore.load(null);
-            return keyStore.containsAlias(keyName);
-        } catch (Exception e) {
+            Log.e(TAG, "getOrCreateSecretKey " + promptInfo.getSecretName() + " error", e);
             throw new CryptoException(e.getMessage(), e);
         }
     }
@@ -108,8 +102,9 @@ class CryptographyManagerImpl implements CryptographyManager {
         try {
             try {
                 return tryInitializeCipherForEncryption(promptInfo);
-            } catch (KeyPermanentlyInvalidatedException e) {
+            } catch (KeyInvalidatedException e) {
                 // If existing key is invalidated, delete and try again
+                Log.d(TAG, "getInitializedCipherForEncryption: deleting invalidated key " + promptInfo.getSecretName());
                 removeKey(promptInfo.getSecretName());
                 return tryInitializeCipherForEncryption(promptInfo);
             }
@@ -120,12 +115,21 @@ class CryptographyManagerImpl implements CryptographyManager {
         }
     }
 
-    private Cipher tryInitializeCipherForEncryption(PromptInfo promptInfo)
-            throws InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, CryptoException {
-        Cipher cipher = getCipher();
-        SecretKey secretKey = getOrCreateSecretKey(promptInfo);
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-        return cipher;
+    private Cipher tryInitializeCipherForEncryption(PromptInfo promptInfo) throws CryptoException {
+        try {
+            Cipher cipher = getCipher();
+            SecretKey secretKey = getOrCreateSecretKey(promptInfo);
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+            return cipher;
+        } catch (CryptoException e) {
+            if (e.getCause() instanceof KeyPermanentlyInvalidatedException
+                    || e.getCause() instanceof UnrecoverableKeyException) {
+                throw new KeyInvalidatedException();
+            }
+            throw e;
+        } catch (Exception e) {
+            throw new CryptoException(e.getMessage(), e);
+        }
     }
 
     @Override
@@ -154,7 +158,8 @@ class CryptographyManagerImpl implements CryptographyManager {
             return cipher;
         } catch (CryptoException e) {
             throw e;
-        } catch (KeyPermanentlyInvalidatedException e) {
+        } catch (UnrecoverableKeyException | KeyPermanentlyInvalidatedException e) {
+            Log.d(TAG, "getInitializedCipherForDecryption: invalidated key " + keyName);
             throw new KeyInvalidatedException();
         } catch (Exception e) {
             throw new CryptoException(e.getMessage(), e);

@@ -10,16 +10,16 @@ class PromptInfo {
     private static final String SECRET = "secret";
     private static final String SCOPE = "scope";
     private static final String LOCK_BEHAVIOR = "lockBehavior";
+    private static final String ANDROID_AUTO_LOCK_TIME = "androidAutoLockTimeSeconds";
     private static final String NON_INTERACTIVE = "interactionNotAllowed";
     private static final String CONFIRMATION_REQUIRED = "confirmationRequired";
     private static final String BATCH = "batch";
     private static final String TITLE = "title";
     private static final String SUBTITLE = "subtitle";
     private static final String DESCRIPTION = "description";
-    private static final String FALLBACK_BUTTON_TITLE = "fallbackButtonTitle";
     private static final String CANCEL_BUTTON_TITLE = "cancelButtonTitle";
 
-    private static final String DEFAULT_SECRET_NAME = "__aio_secret_key";
+    static final String DEFAULT_SECRET_NAME = "__aio_secret_key";
 
     static final String SECRET_EXTRA = "secret";
 
@@ -49,6 +49,10 @@ class PromptInfo {
         return LockBehavior.fromValue(bundle.getInt(LOCK_BEHAVIOR));
     }
 
+    int getAndroidAutoLockTimeSeconds() {
+        return bundle.getInt(ANDROID_AUTO_LOCK_TIME);
+    }
+
     boolean getInteractionNotAllowed() {
         return bundle.getBoolean(NON_INTERACTIVE);
     }
@@ -73,10 +77,6 @@ class PromptInfo {
         return bundle.getString(DESCRIPTION);
     }
 
-    String getFallbackButtonTitle() {
-        return bundle.getString(FALLBACK_BUTTON_TITLE);
-    }
-
     String getCancelButtonTitle() {
         return bundle.getString(CANCEL_BUTTON_TITLE);
     }
@@ -89,14 +89,14 @@ class PromptInfo {
         private String secretName = DEFAULT_SECRET_NAME;
         private String secret = null;
         private SecretScope scope = SecretScope.ONE_PASSCODE;
-        private LockBehavior lockBehavior = LockBehavior.LOCK_AFTER_USE_PASSCODE_FALLBACK;
+        private LockBehavior lockBehavior = LockBehavior.LOCK_AFTER_USE;
+        private int androidAutoLockTimeSeconds = 14 * 24 * 60 * 60;
         private boolean interactionNotAllowed = false;
         private boolean confirmationRequired = true;
         private ActionBatchControl batch = null;
         private String title = "App unlock";
         private String subtitle = null;
         private String description = null;
-        private String fallbackButtonTitle = "Use backup";
         private String cancelButtonTitle = "Cancel";
 
         Builder(String applicationLabel) {
@@ -124,13 +124,13 @@ class PromptInfo {
             bundle.putString(SECRET, this.secret);
             bundle.putInt(SCOPE, this.scope.getValue());
             bundle.putInt(LOCK_BEHAVIOR, this.lockBehavior.getValue());
+            bundle.putInt(ANDROID_AUTO_LOCK_TIME, this.androidAutoLockTimeSeconds);
             bundle.putBoolean(NON_INTERACTIVE, this.interactionNotAllowed);
             bundle.putBoolean(CONFIRMATION_REQUIRED, this.confirmationRequired);
             bundle.putInt(BATCH, this.batch.getValue());
             bundle.putString(SUBTITLE, this.subtitle);
             bundle.putString(TITLE, this.title);
             bundle.putString(DESCRIPTION, this.description);
-            bundle.putString(FALLBACK_BUTTON_TITLE, this.fallbackButtonTitle);
             bundle.putString(CANCEL_BUTTON_TITLE, this.cancelButtonTitle);
             promptInfo.bundle = bundle;
 
@@ -144,11 +144,13 @@ class PromptInfo {
             secretName = args.getString(SECRET_NAME, DEFAULT_SECRET_NAME);
             secret = args.getString(SECRET, null);
             scope = SecretScope.fromJsonString(
-                args.getString(SCOPE, "onePasscode")
+                args.getString(SCOPE, "activeSystemLock")
             );
             lockBehavior = LockBehavior.fromJsonString(
-                args.getString(LOCK_BEHAVIOR, "lockAfterUsePasscodeFallback")
+                args.getString(LOCK_BEHAVIOR, "lockAfterUse")
             );
+            androidAutoLockTimeSeconds = args.getInt(
+                ANDROID_AUTO_LOCK_TIME, 14 * 24 * 60 * 60);
             interactionNotAllowed = args.getBoolean(NON_INTERACTIVE, false);
             confirmationRequired = args.getBoolean(CONFIRMATION_REQUIRED, true);
             batch = ActionBatchControl.fromJsonString(
@@ -157,7 +159,6 @@ class PromptInfo {
             title = args.getString(TITLE, defaultTitle);
             subtitle = args.getString(SUBTITLE, null);
             description = args.getString(DESCRIPTION, null);
-            fallbackButtonTitle = args.getString(FALLBACK_BUTTON_TITLE, "Use backup");
             cancelButtonTitle = args.getString(CANCEL_BUTTON_TITLE, "Cancel");
 
             return this;

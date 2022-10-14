@@ -1,8 +1,10 @@
 package de.niklasmerz.cordova.biometric;
 
+import java.util.Objects;
+
 public enum LockBehavior {
     LOCK_WITH_DEVICE(1, "lockWithDevice"),
-    LOCK_AFTER_USE_PASSCODE_FALLBACK(2, "lockAfterUsePasscodeFallback"),
+    LOCK_AFTER_USE(2, "lockAfterUse"),
     LOCK_AFTER_USE_BIOMETRIC_ONLY(3, "lockAfterUseBiometricOnly");
 
     private int value;
@@ -32,7 +34,7 @@ public enum LockBehavior {
 
     public static LockBehavior fromJsonString(String jsonString) {
         for (LockBehavior scope : values()) {
-            if (scope.getJsonString().equals(jsonString)) {
+            if (Objects.equals(scope.getJsonString(), jsonString)) {
                 return scope;
             }
         }

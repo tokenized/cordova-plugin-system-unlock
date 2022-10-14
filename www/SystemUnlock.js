@@ -1,6 +1,16 @@
 /* global cordova */
 
-class SystemUnlock {
+// See https://advancedweb.hu/how-to-serialize-calls-to-an-async-function/
+const serialize = (fn) => {
+  let queue = Promise.resolve();
+  return (...args) => {
+    const res = queue.then(() => fn(...args));
+    queue = res.catch(() => {});
+    return res;
+  };
+};
+
+class Fingerprint {
   // Plugin Errors
   BIOMETRIC_UNKNOWN_ERROR = -100;
   BIOMETRIC_UNAVAILABLE = -101;
@@ -17,12 +27,7 @@ class SystemUnlock {
   BIOMETRIC_LOCKED_OUT_PERMANENT = -112;
   BIOMETRIC_NO_SECRET_FOUND = -113;
 
-  // Biometric types
-  BIOMETRIC_TYPE_FINGERPRINT = 'finger';
-  BIOMETRIC_TYPE_FACE = 'face';
-  BIOMETRIC_TYPE_COMMON = 'biometric';
-
-  execNative(name, options) {
+  execNative = serialize((name, options) => {
     return new Promise((resolve, reject) => {
       cordova.exec(
         (result) => {
@@ -47,20 +52,19 @@ class SystemUnlock {
           }
           reject(error);
         },
-        'SystemUnlock',
+        'Fingerprint',
         name,
         [options],
       );
     });
-  }
+  });
 
   /**
    * @param {Object} options
-   * @param {'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
-   * @returns {Promise<'none' | 'finger' | 'face' | 'unknown'>}
+   * @returns {Promise<'passcode' | 'finger' | 'finger+passcode' | 'face' | 'face+passcode' | 'biometric' | 'biometric+passcode' | 'unknown'>}
    */
-  async isAvailable(options) {
-    return await this.execNative('isAvailable', options);
+  async isAvailable() {
+    return await this.execNative('isAvailable');
   }
 
   /**
@@ -75,7 +79,7 @@ class SystemUnlock {
 
   /**
    * @param {Object} options
-   * @param {'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
+   * @param {'lockAfterUse' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUse']
    * @param {boolean} [options.confirmationRequired=true]
    * @param {'start' | 'continue'} [options.batch]
    * @param {string} [options.title]
@@ -93,8 +97,9 @@ class SystemUnlock {
    * @param {Object} options
    * @param {string} [options.secretName="__aio_key"]
    * @param {string} options.secret
-   * @param {'sync' | 'backup' | 'oneDevice' | 'onePasscode' | 'oneBiometric'} [options.scope='onePasscode']
-   * @param {'lockWithDevice' | 'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
+   * @param {'sync' | 'backup' | 'oneDevice' | 'activeSystemLock' | 'oneBiometric'} [options.scope='activeSystemLock']
+   * @param {'lockWithDevice' | 'lockAfterUse' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUse']
+   * @param {number} [options.androidAutoLockTimeSeconds=1209600]
    * @param {boolean} [options.interactionNotAllowed=false]
    * @param {boolean} [options.confirmationRequired=true]
    * @param {'start' | 'continue'} [options.batch]
@@ -138,7 +143,7 @@ class SystemUnlock {
   /**
    * @param {Object} options
    * @param {string} [options.secretName="__aio_key"]
-   * @param {'lockWithDevice' | 'lockAfterUsePasscodeFallback' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUsePasscodeFallback']
+   * @param {'lockWithDevice' | 'lockAfterUse' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUse']
    * @param {boolean} [options.interactionNotAllowed=false]
    * @param {boolean} [options.confirmationRequired=true]
    * @param {'start' | 'continue'} [options.batch]
@@ -150,8 +155,14 @@ class SystemUnlock {
    * @returns {Promise<string>}
    */
   async deleteSecret(options) {
-    return await this.execNative('deleteSecret', options);
+    try {
+      return await this.execNative('deleteSecret', options);
+    } catch (error) {
+      if (error?.code !== this.BIOMETRIC_NO_SECRET_FOUND) {
+        throw error;
+      }
+    }
   }
 }
 
-module.exports = new SystemUnlock();
+module.exports = new Fingerprint();

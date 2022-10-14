@@ -31,7 +31,7 @@ let errorCodeMapping = [
         switch lockBehavior {
         case "lockAfterUseBiometricOnly":
             return LAPolicy.deviceOwnerAuthenticationWithBiometrics
-        case "lockAfterUsePasscodeFallback":
+        case "lockAfterUse":
             return LAPolicy.deviceOwnerAuthentication
         default:
             preconditionFailure(
@@ -43,7 +43,7 @@ let errorCodeMapping = [
     func isAvailable(_ command: CDVInvokedUrlCommand) {
         let options = command.arguments[0] as! [String: Any]?
         let lockBehavior =
-            options?["lockBehavior"] as! String? ?? "lockAfterUsePasscodeFallback"
+            options?["lockBehavior"] as! String? ?? "lockAfterUse"
 
         let authenticationContext = LAContext()
 
@@ -61,11 +61,11 @@ let errorCodeMapping = [
             var biometryType: String
             switch authenticationContext.biometryType {
             case .none:
-                biometryType = "none"
+                biometryType = "passcode"
             case .touchID:
-                biometryType = "finger"
+                biometryType = "finger+passcode"
             case .faceID:
-                biometryType = "face"
+                biometryType = "face+passcode"
             @unknown default:
                 biometryType = "unknown"
             }
@@ -107,7 +107,7 @@ let errorCodeMapping = [
     func challenge(_ command: CDVInvokedUrlCommand) {
         let options = command.arguments[0] as! [String: Any]?
         let lockBehavior =
-            options?["lockBehavior"] as! String? ?? "lockAfterUsePasscodeFallback"
+            options?["lockBehavior"] as! String? ?? "lockAfterUse"
 
         let batch = options?["batch"] as! String?
         var authenticationContext = LAContext()
@@ -193,7 +193,7 @@ let errorCodeMapping = [
         let options = command.arguments[0] as! [String: Any]?
 
         let lockBehavior =
-            options?["lockBehavior"] as! String? ?? "lockAfterUsePasscodeFallback"
+            options?["lockBehavior"] as! String? ?? "lockAfterUse"
 
         let batch = options?["batch"] as! String?
         var context: LAContext
@@ -258,9 +258,9 @@ let errorCodeMapping = [
         }
 
         let scope =
-            options?["scope"] as! String? ?? "onePasscode"
+            options?["scope"] as! String? ?? "activeSystemLock"
         let lockBehavior =
-            options?["lockBehavior"] as! String? ?? "lockAfterUsePasscodeFallback"
+            options?["lockBehavior"] as! String? ?? "lockAfterUse"
 
         var pluginResult: CDVPluginResult
         do {
@@ -358,7 +358,7 @@ let errorCodeMapping = [
         let options = command.arguments[0] as! [String: Any]?
 
         let lockBehavior =
-            options?["lockBehavior"] as! String? ?? "lockAfterUsePasscodeFallback"
+            options?["lockBehavior"] as! String? ?? "lockAfterUse"
 
         let batch = options?["batch"] as! String?
         var context: LAContext
@@ -484,13 +484,13 @@ struct Secret {
         var access: SecAccessControl?
 
         switch (scope, lockBehavior) {
-        case ("onePasscode", "lockWithDevice"):
+        case ("activeSystemLock", "lockWithDevice"):
             access = SecAccessControlCreateWithFlags(
                 nil,
                 kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
                 [],
                 nil)
-        case ("onePasscode", "lockAfterUsePasscodeFallback"):
+        case ("activeSystemLock", "lockAfterUse"):
             access = SecAccessControlCreateWithFlags(
                 nil,
                 kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,

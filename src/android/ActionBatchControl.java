@@ -1,6 +1,9 @@
 package de.niklasmerz.cordova.biometric;
 
+import java.util.Objects;
+
 public enum ActionBatchControl {
+    NONE(0, null),
     START(1, "start"),
     CONTINUE(2, "continue");
 
@@ -31,10 +34,10 @@ public enum ActionBatchControl {
 
     public static ActionBatchControl fromJsonString(String jsonString) {
         for (ActionBatchControl scope : values()) {
-            if (scope.getJsonString().equals(jsonString)) {
+            if (Objects.equals(scope.getJsonString(), jsonString)) {
                 return scope;
             }
         }
-        return null;
+        return NONE;
     }
 }
