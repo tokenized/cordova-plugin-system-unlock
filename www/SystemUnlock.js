@@ -10,7 +10,7 @@ const serialize = (fn) => {
   };
 };
 
-class Fingerprint {
+class SystemUnlock {
   // Plugin Errors
   BIOMETRIC_UNKNOWN_ERROR = -100;
   BIOMETRIC_UNAVAILABLE = -101;
@@ -36,24 +36,24 @@ class Fingerprint {
 
   execNative = serialize((name, options) => {
     return new Promise((resolve, reject) => {
-      this.debugOn && console.log(`Running native Fingerprint.${name}`);
+      this.debugOn && console.log(`Running native SystemUnlock.${name}`);
       cordova.exec(
         (result) => {
           this.debugOn &&
-            console.log(`Finished native Fingerprint.${name}: success`);
+            console.log(`Finished native SystemUnlock.${name}: success`);
           resolve(result);
         },
         (errorInfo) => {
           if (errorInfo instanceof Error) {
             this.debugOn &&
               console.log(
-                `Finished native Fingerprint.${name}: error(${errorInfo})`,
+                `Finished native SystemUnlock.${name}: error(${errorInfo})`,
               );
             reject(errorInfo);
           } else if (errorInfo && typeof errorInfo === 'string') {
             this.debugOn &&
               console.log(
-                `Finished native Fingerprint.${name}: error(${errorInfo})`,
+                `Finished native SystemUnlock.${name}: error(${errorInfo})`,
               );
             reject(new Error(errorInfo));
           }
@@ -69,10 +69,12 @@ class Fingerprint {
             error.wasCancelledByUser = true;
           }
           this.debugOn &&
-            console.log(`Finished native Fingerprint.${name}: error(${error})`);
+            console.log(
+              `Finished native SystemUnlock.${name}: error(${error})`,
+            );
           reject(error);
         },
-        'Fingerprint',
+        'SystemUnlock',
         name,
         [options],
       );
@@ -185,4 +187,4 @@ class Fingerprint {
   }
 }
 
-module.exports = new Fingerprint();
+module.exports = new SystemUnlock();

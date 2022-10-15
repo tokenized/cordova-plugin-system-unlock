@@ -1,4 +1,4 @@
-package de.niklasmerz.cordova.biometric;
+package com.tokenized.cordova.system_unlock;
 
 public enum PluginError {
     BIOMETRIC_UNKNOWN_ERROR(-100),

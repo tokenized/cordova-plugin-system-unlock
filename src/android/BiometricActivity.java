@@ -1,4 +1,4 @@
-package de.niklasmerz.cordova.biometric;
+package com.tokenized.cordova.system_unlock;
 
 import android.content.Intent;
 import android.os.Build;

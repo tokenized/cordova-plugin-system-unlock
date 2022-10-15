@@ -1,4 +1,4 @@
-package de.niklasmerz.cordova.biometric;
+package com.tokenized.cordova.system_unlock;
 
 import android.app.Activity;
 import android.content.Context;
@@ -23,8 +23,8 @@ import org.json.JSONObject;
 
 import javax.crypto.Cipher;
 
-public class Fingerprint extends CordovaPlugin {
-    private static final String TAG = "Fingerprint";
+public class SystemUnlock extends CordovaPlugin {
+    private static final String TAG = "SystemUnlock";
     private static final int REQUEST_CODE_BIOMETRIC = 1;
 
     private String applicationLabel;
@@ -192,7 +192,7 @@ public class Fingerprint extends CordovaPlugin {
             PluginResult result = new PluginResult(PluginResult.Status.ERROR, resultJson);
             result.setKeepCallback(true);
             cordova.getActivity().runOnUiThread(() ->
-                Fingerprint.this.mCallbackContext.sendPluginResult(result));
+                SystemUnlock.this.mCallbackContext.sendPluginResult(result));
         } catch (JSONException e) {
             Log.e(TAG, e.getMessage(), e);
         }

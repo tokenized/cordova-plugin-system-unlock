@@ -37,8 +37,8 @@
     </config-file>
 
     <config-file target="res/xml/config.xml" parent="/*">
-      <feature name="Fingerprint">
-        <param name="android-package" value="de.niklasmerz.cordova.biometric.Fingerprint"/>
+      <feature name="SystemUnlock">
+        <param name="android-package" value="com.tokenized.cordova.system_unlock.SystemUnlock"/>
       </feature>
     </config-file>
 
@@ -54,20 +54,23 @@
     <framework src="src/android/build.gradle" custom="true" type="gradleReference"/>
     <resource-file src="src/android/res/biometric_activity.xml" target="res/layout/biometric_activity.xml"/>
     <resource-file src="src/android/res/styles.xml" target="res/values/biometric-styles.xml"/>
-    <source-file src="src/android/PromptInfo.java" target-dir="src/de/niklasmerz/cordova/biometric"/>
-    <source-file src="src/android/BiometricActivity.java" target-dir="src/de/niklasmerz/cordova/biometric"/>
-    <source-file src="src/android/BiometricActivityType.java" target-dir="src/de/niklasmerz/cordova/biometric"/>
-    <source-file src="src/android/Fingerprint.java" target-dir="src/de/niklasmerz/cordova/biometric"/>
-    <source-file src="src/android/PluginError.java" target-dir="src/de/niklasmerz/cordova/biometric"/>
-    <source-file src="src/android/Args.java" target-dir="src/de/niklasmerz/cordova/biometric"/>
-    <source-file src="src/android/CryptographyManager.java" target-dir="src/de/niklasmerz/cordova/biometric"/>
-    <source-file src="src/android/CryptographyManagerImpl.java" target-dir="src/de/niklasmerz/cordova/biometric"/>
-    <source-file src="src/android/EncryptedData.java" target-dir="src/de/niklasmerz/cordova/biometric"/>
-    <source-file src="src/android/CryptoException.java" target-dir="src/de/niklasmerz/cordova/biometric"/>
-    <source-file src="src/android/KeyInvalidatedException.java" target-dir="src/de/niklasmerz/cordova/biometric"/>
+    <source-file src="src/android/ActionBatchControl.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/Args.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/BiometricActivity.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/BiometricActivityType.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/CryptoException.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/CryptographyManager.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/CryptographyManagerImpl.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/EncryptedData.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/KeyInvalidatedException.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/LockBehavior.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/PluginError.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/PromptInfo.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/SecretScope.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
+    <source-file src="src/android/SystemUnlock.java" target-dir="src/com/tokenized/cordova/system_unlock"/>
   </platform>
 
   <engines>
-    <engine name="cordova-android" version=">=9.0.0"/>
+    <engine name="cordova-android" version=">=10.1.2"/>
   </engines>
 </plugin>
