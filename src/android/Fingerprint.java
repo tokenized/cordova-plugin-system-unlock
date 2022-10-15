@@ -34,7 +34,6 @@ public class Fingerprint extends CordovaPlugin {
 
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
-        Log.v(TAG, "Init Fingerprint");
 
         applicationLabel = getApplicationLabel(cordova.getActivity());
 
@@ -43,7 +42,6 @@ public class Fingerprint extends CordovaPlugin {
 
     public boolean execute(final String action, JSONArray args, CallbackContext callbackContext) {
         this.mCallbackContext = callbackContext;
-        Log.v(TAG, "Fingerprint action: " + action);
 
         // All methods require access to security checks
         PluginError error = canAuthenticate();

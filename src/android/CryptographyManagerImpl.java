@@ -32,16 +32,19 @@ class CryptographyManagerImpl implements CryptographyManager {
         return Cipher.getInstance(transformation);
     }
 
-    private SecretKey getOrCreateSecretKey(PromptInfo promptInfo) throws CryptoException {
+    private SecretKey createSecretKey(PromptInfo promptInfo) throws CryptoException {
         try {
             String keyName = promptInfo.getSecretName();
 
             KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
             keyStore.load(null); // Keystore must be loaded before it can be accessed
 
-            SecretKey key = (SecretKey)keyStore.getKey(keyName, null);
-            if (key != null) {
-                return key;
+            try {
+                if (keyStore.containsAlias(keyName)) {
+                    keyStore.deleteEntry(keyName);
+                }
+            } catch (Exception e) {
+                Log.d(TAG, "createSecretKey failed to delete existing entry", e);
             }
 
             KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(
@@ -60,7 +63,7 @@ class CryptographyManagerImpl implements CryptographyManager {
                     builder.setUserAuthenticationValidityDurationSeconds(
                         promptInfo.getAndroidAutoLockTimeSeconds());
                 } else {
-                    builder.setUserAuthenticationValidityDurationSeconds(60 * 5);
+                    builder.setUserAuthenticationValidityDurationSeconds(5);
                 }
             } else {
                 switch (promptInfo.getLockBehavior()) {
@@ -73,14 +76,14 @@ class CryptographyManagerImpl implements CryptographyManager {
                         break;
                     case LOCK_AFTER_USE:
                         builder.setUserAuthenticationParameters(
-                            60 * 5,
+                            5,
                             KeyProperties.AUTH_BIOMETRIC_STRONG
                                 | KeyProperties.AUTH_DEVICE_CREDENTIAL
                         );
                         break;
                     case LOCK_AFTER_USE_BIOMETRIC_ONLY:
                         builder.setUserAuthenticationParameters(
-                            60 * 5,
+                            5,
                             KeyProperties.AUTH_BIOMETRIC_STRONG
                         );
                         break;
@@ -92,7 +95,7 @@ class CryptographyManagerImpl implements CryptographyManager {
 
             return keyGenerator.generateKey();
         } catch (Exception e) {
-            Log.e(TAG, "getOrCreateSecretKey " + promptInfo.getSecretName() + " error", e);
+            Log.d(TAG, "createSecretKey " + promptInfo.getSecretName() + " error", e);
             throw new CryptoException(e.getMessage(), e);
         }
     }
@@ -100,25 +103,8 @@ class CryptographyManagerImpl implements CryptographyManager {
     @Override
     public Cipher getInitializedCipherForEncryption(PromptInfo promptInfo) throws CryptoException {
         try {
-            try {
-                return tryInitializeCipherForEncryption(promptInfo);
-            } catch (KeyInvalidatedException e) {
-                // If existing key is invalidated, delete and try again
-                Log.d(TAG, "getInitializedCipherForEncryption: deleting invalidated key " + promptInfo.getSecretName());
-                removeKey(promptInfo.getSecretName());
-                return tryInitializeCipherForEncryption(promptInfo);
-            }
-        } catch (CryptoException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new CryptoException(e.getMessage(), e);
-        }
-    }
-
-    private Cipher tryInitializeCipherForEncryption(PromptInfo promptInfo) throws CryptoException {
-        try {
             Cipher cipher = getCipher();
-            SecretKey secretKey = getOrCreateSecretKey(promptInfo);
+            SecretKey secretKey = createSecretKey(promptInfo);
             cipher.init(Cipher.ENCRYPT_MODE, secretKey);
             return cipher;
         } catch (CryptoException e) {
@@ -159,7 +145,7 @@ class CryptographyManagerImpl implements CryptographyManager {
         } catch (CryptoException e) {
             throw e;
         } catch (UnrecoverableKeyException | KeyPermanentlyInvalidatedException e) {
-            Log.d(TAG, "getInitializedCipherForDecryption: invalidated key " + keyName);
+            Log.d(TAG, "getInitializedCipherForDecryption: invalidated key " + keyName, e);
             throw new KeyInvalidatedException();
         } catch (Exception e) {
             throw new CryptoException(e.getMessage(), e);

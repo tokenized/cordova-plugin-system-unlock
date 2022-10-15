@@ -187,13 +187,11 @@ public class BiometricActivity extends AppCompatActivity {
         new BiometricPrompt.AuthenticationCallback() {
             @Override
             public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
-                // super.onAuthenticationError(errorCode, errString);
                 onError(errorCode, errString);
             }
 
             @Override
             public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
-                // super.onAuthenticationSucceeded(result);
                 try {
                     switch (mPromptInfo.getType()) {
                         case SET_SECRET:
@@ -218,7 +216,6 @@ public class BiometricActivity extends AppCompatActivity {
 
             @Override
             public void onAuthenticationFailed() {
-                // super.onAuthenticationFailed();
                 onError(
                     PluginError.BIOMETRIC_AUTHENTICATION_FAILED.getValue(),
                     PluginError.BIOMETRIC_AUTHENTICATION_FAILED.getMessage()
