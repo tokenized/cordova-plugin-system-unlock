@@ -27,16 +27,34 @@ class Fingerprint {
   BIOMETRIC_LOCKED_OUT_PERMANENT = -112;
   BIOMETRIC_NO_SECRET_FOUND = -113;
 
+  debugOn = false;
+
+  /** @param {boolean} enable */
+  debug(enable) {
+    this.debugOn = !!enable;
+  }
+
   execNative = serialize((name, options) => {
     return new Promise((resolve, reject) => {
+      this.debugOn && console.log(`Running native Fingerprint.${name}`);
       cordova.exec(
         (result) => {
+          this.debugOn &&
+            console.log(`Finished native Fingerprint.${name}: success`);
           resolve(result);
         },
         (errorInfo) => {
           if (errorInfo instanceof Error) {
+            this.debugOn &&
+              console.log(
+                `Finished native Fingerprint.${name}: error(${errorInfo})`,
+              );
             reject(errorInfo);
           } else if (errorInfo && typeof errorInfo === 'string') {
+            this.debugOn &&
+              console.log(
+                `Finished native Fingerprint.${name}: error(${errorInfo})`,
+              );
             reject(new Error(errorInfo));
           }
 
@@ -50,6 +68,8 @@ class Fingerprint {
           ) {
             error.wasCancelledByUser = true;
           }
+          this.debugOn &&
+            console.log(`Finished native Fingerprint.${name}: error(${error})`);
           reject(error);
         },
         'Fingerprint',
