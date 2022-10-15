@@ -1,5 +1,5 @@
 {
-  "name": "cordova-plugin-system-unlock",
+  "name": "@tokenized/cordova-plugin-system-unlock",
   "version": "1.0.0",
   "description": "Cordova plugin for managing secrets protected by iOS/Android biometrics and passcode",
   "cordova": {
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tokenized/cordova-plugin-system-unlock"
+    "url": "https://github.com/tokenized/cordova-plugin-system-unlock"
   },
   "keywords": [
     "cordova",
