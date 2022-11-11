@@ -11,75 +11,78 @@ const serialize = (fn) => {
 };
 
 class SystemUnlock {
-  // Plugin Errors
-  BIOMETRIC_UNKNOWN_ERROR = -100;
-  BIOMETRIC_UNAVAILABLE = -101;
-  BIOMETRIC_AUTHENTICATION_FAILED = -102;
-  BIOMETRIC_SDK_NOT_SUPPORTED = -103;
-  BIOMETRIC_HARDWARE_NOT_SUPPORTED = -104;
-  BIOMETRIC_PERMISSION_NOT_GRANTED = -105;
-  BIOMETRIC_NOT_ENROLLED = -106;
-  BIOMETRIC_INTERNAL_PLUGIN_ERROR = -107;
-  BIOMETRIC_DISMISSED = -108;
-  BIOMETRIC_PIN_OR_PATTERN_DISMISSED = -109;
-  BIOMETRIC_SCREEN_GUARD_UNSECURED = -110;
-  BIOMETRIC_LOCKED_OUT = -111;
-  BIOMETRIC_LOCKED_OUT_PERMANENT = -112;
-  BIOMETRIC_NO_SECRET_FOUND = -113;
+  constructor() {
+    // Plugin Errors
+    this.BIOMETRIC_UNKNOWN_ERROR = -100;
+    this.BIOMETRIC_UNAVAILABLE = -101;
+    this.BIOMETRIC_AUTHENTICATION_FAILED = -102;
+    this.BIOMETRIC_SDK_NOT_SUPPORTED = -103;
+    this.BIOMETRIC_HARDWARE_NOT_SUPPORTED = -104;
+    this.BIOMETRIC_PERMISSION_NOT_GRANTED = -105;
+    this.BIOMETRIC_NOT_ENROLLED = -106;
+    this.BIOMETRIC_INTERNAL_PLUGIN_ERROR = -107;
+    this.BIOMETRIC_DISMISSED = -108;
+    this.BIOMETRIC_PIN_OR_PATTERN_DISMISSED = -109;
+    this.BIOMETRIC_SCREEN_GUARD_UNSECURED = -110;
+    this.BIOMETRIC_LOCKED_OUT = -111;
+    this.BIOMETRIC_LOCKED_OUT_PERMANENT = -112;
+    this.BIOMETRIC_NO_SECRET_FOUND = -113;
 
-  debugOn = false;
+    this.debugOn = false;
+
+    this.execNative = serialize((name, options) => {
+      return new Promise((resolve, reject) => {
+        this.debugOn && console.log(`Running native SystemUnlock.${name}`);
+        cordova.exec(
+          (result) => {
+            this.debugOn &&
+              console.log(`Finished native SystemUnlock.${name}: success`);
+            resolve(result);
+          },
+          (errorInfo) => {
+            if (errorInfo instanceof Error) {
+              this.debugOn &&
+                console.log(
+                  `Finished native SystemUnlock.${name}: error(${errorInfo})`,
+                );
+              reject(errorInfo);
+            } else if (errorInfo && typeof errorInfo === 'string') {
+              this.debugOn &&
+                console.log(
+                  `Finished native SystemUnlock.${name}: error(${errorInfo})`,
+                );
+              reject(new Error(errorInfo));
+            }
+
+            let error = new Error();
+            if (typeof errorInfo === 'object') {
+              error = Object.assign(error, errorInfo);
+            }
+            if (
+              typeof error === 'object' &&
+              (error.code === this.BIOMETRIC_DISMISSED ||
+                error.code === this.BIOMETRIC_PIN_OR_PATTERN_DISMISSED)
+            ) {
+              error.wasCancelledByUser = true;
+            }
+            this.debugOn &&
+              console.log(
+                `Finished native SystemUnlock.${name}: error(${error})`,
+              );
+            reject(error);
+          },
+          'SystemUnlock',
+          name,
+          [options],
+        );
+      });
+    });
+  }
 
   /** @param {boolean} enable */
   debug(enable) {
     this.debugOn = !!enable;
   }
-
-  execNative = serialize((name, options) => {
-    return new Promise((resolve, reject) => {
-      this.debugOn && console.log(`Running native SystemUnlock.${name}`);
-      cordova.exec(
-        (result) => {
-          this.debugOn &&
-            console.log(`Finished native SystemUnlock.${name}: success`);
-          resolve(result);
-        },
-        (errorInfo) => {
-          if (errorInfo instanceof Error) {
-            this.debugOn &&
-              console.log(
-                `Finished native SystemUnlock.${name}: error(${errorInfo})`,
-              );
-            reject(errorInfo);
-          } else if (errorInfo && typeof errorInfo === 'string') {
-            this.debugOn &&
-              console.log(
-                `Finished native SystemUnlock.${name}: error(${errorInfo})`,
-              );
-            reject(new Error(errorInfo));
-          }
-
-          let error = new Error();
-          if (typeof errorInfo === 'object') {
-            error = Object.assign(error, errorInfo);
-          }
-          if (
-            error?.code === this.BIOMETRIC_DISMISSED ||
-            error?.code === this.BIOMETRIC_PIN_OR_PATTERN_DISMISSED
-          ) {
-            error.wasCancelledByUser = true;
-          }
-          this.debugOn &&
-            console.log(
-              `Finished native SystemUnlock.${name}: error(${error})`,
-            );
-          reject(error);
-        },
-        'SystemUnlock',
-        name,
-        [options],
-      );
-    });
-  });
 
   /**
    * @param {Object} options
@@ -93,7 +96,7 @@ class SystemUnlock {
    * @returns {Promise<boolean>}
    */
   async isiCloudLoggedIn() {
-    if (window.device?.platform === 'iOS') {
+    if (window.device && window.device.platform === 'iOS') {
       return await this.execNative('isiCloudLoggedIn');
     }
     return false;
@@ -180,7 +183,10 @@ class SystemUnlock {
     try {
       return await this.execNative('deleteSecret', options);
     } catch (error) {
-      if (error?.code !== this.BIOMETRIC_NO_SECRET_FOUND) {
+      if (
+        typeof error !== 'object' ||
+        error.code !== this.BIOMETRIC_NO_SECRET_FOUND
+      ) {
         throw error;
       }
     }
