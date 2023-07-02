@@ -121,6 +121,9 @@ class SystemUnlock {
   /**
    * @param {Object} options
    * @param {string} [options.secretName="__aio_key"]
+   * @param {string} [options.secretService]
+   * @param {string} [options.secretLabel]
+   * @param {string} [options.secretComment]
    * @param {string} options.secret
    * @param {'sync' | 'backup' | 'oneDevice' | 'activeSystemLock' | 'oneBiometric'} [options.scope='activeSystemLock']
    * @param {'lockWithDevice' | 'lockAfterUse' | 'lockAfterUseBiometricOnly'} [options.lockBehavior='lockAfterUse']
