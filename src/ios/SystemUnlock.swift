@@ -188,6 +188,15 @@ let errorCodeMapping = [
         return context
     }
 
+    func makeSecret(
+        options: [String: Any]?
+    ) -> Secret {
+        return Secret(
+            keyName: options?["secretName"] as! String? ?? "__aio_key",
+            isSynchronizable: options?["scope"] as! String? == "sync"
+        )
+    }
+
     @objc(setSecret:)
     func setSecret(_ command: CDVInvokedUrlCommand) {
         let options = command.arguments[0] as! [String: Any]?
@@ -252,10 +261,11 @@ let errorCodeMapping = [
             return
         }
 
-        var secret = Secret()
-        if let secretName = options?["secretName"] as! String? {
-            secret = Secret(keyName: secretName)
-        }
+        var secret = makeSecret(options: options)
+
+        let secretService = options?["secretService"] as! String?
+        let secretLabel = options?["secretLabel"] as! String?
+        let secretComment = options?["secretComment"] as! String?
 
         let scope =
             options?["scope"] as! String? ?? "activeSystemLock"
@@ -270,6 +280,9 @@ let errorCodeMapping = [
                 secretStr,
                 scope: scope,
                 lockBehavior: lockBehavior,
+                service: secretService,
+                label: secretLabel,
+                comment: secretComment,
                 context: context
             )
 
@@ -292,10 +305,7 @@ let errorCodeMapping = [
     func hasSecret(_ command: CDVInvokedUrlCommand) {
         let options = command.arguments[0] as! [String: Any]?
 
-        var secret = Secret()
-        if let secretName = options?["secretName"] as! String? {
-            secret = Secret(keyName: secretName)
-        }
+        var secret = makeSecret(options: options)
 
         var pluginResult: CDVPluginResult
         do {
@@ -319,10 +329,10 @@ let errorCodeMapping = [
     func getSecret(_ command: CDVInvokedUrlCommand) {
         let options = command.arguments[0] as! [String: Any]?
 
-        var secret = Secret()
-        if let secretName = options?["secretName"] as! String? {
-            secret = Secret(keyName: secretName)
-        }
+        let scope =
+            options?["scope"] as! String? ?? "activeSystemLock"
+        let lockBehavior =
+            options?["lockBehavior"] as! String? ?? "lockAfterUse"
 
         let batch = options?["batch"] as! String?
         var context: LAContext
@@ -334,6 +344,50 @@ let errorCodeMapping = [
         if batch == "start" {
             SystemUnlock.batchContext = context
         }
+
+        if scope != "sync" || lockBehavior == "lockWithDevice" {
+            getSecretInternal(command, context: context)
+        } else {
+            var reason = "Unlock this app"
+            if let description = options?["description"] as! String? {
+                reason = description
+            }
+
+            context.evaluatePolicy(
+                makeAuthPolicy(lockBehavior: lockBehavior),
+                localizedReason: reason,
+                reply: { [unowned self] (success, error) -> Void in
+                    if success {
+                        getSecretInternal(command, context: context)
+                    } else {
+                        var errorResult: [String: Any] = [
+                            "code": PluginError.BIOMETRIC_UNKNOWN_ERROR.rawValue,
+                            "message": error?.localizedDescription ?? "Something went wrong",
+                        ]
+                        if error != nil {
+                            let errorCode = abs(error!._code)
+                            if let mappedErrorCode = errorCodeMapping[errorCode] {
+                                errorResult = [
+                                    "code": mappedErrorCode, "message": error!.localizedDescription,
+                                ]
+                            }
+                        }
+                        let pluginResult = CDVPluginResult(
+                            status: CDVCommandStatus_ERROR, messageAs: errorResult)
+                        self.commandDelegate.send(pluginResult, callbackId: command.callbackId)
+                    }
+                }
+            )
+        }
+    }
+
+    func getSecretInternal(
+        _ command: CDVInvokedUrlCommand,
+        context: LAContext
+    ) {
+        let options = command.arguments[0] as! [String: Any]?
+
+        var secret = makeSecret(options: options)
 
         var pluginResult: CDVPluginResult
         do {
@@ -413,10 +467,7 @@ let errorCodeMapping = [
     ) {
         let options = command.arguments[0] as! [String: Any]?
 
-        var secret = Secret()
-        if let secretName = options?["secretName"] as! String? {
-            secret = Secret(keyName: secretName)
-        }
+        var secret = makeSecret(options: options)
 
         var pluginResult: CDVPluginResult
         do {
@@ -476,6 +527,7 @@ struct KeychainError: Error {
 
 struct Secret {
     var keyName = "__aio_key"
+    var isSynchronizable = false
 
     private func makeAccessControl(
         scope: String,
@@ -509,13 +561,35 @@ struct Secret {
         _ secret: String,
         scope: String,
         lockBehavior: String,
+        service: String?,
+        label: String?,
+        comment: String?,
         context: LAContext
     ) throws {
         let password = secret.data(using: String.Encoding.utf8)!
 
         // Build the query for use in the add operation.
-        let query =
-            [
+        var query: [CFString: Any]
+        if scope == "sync" {
+            query = [
+                kSecClass: kSecClassGenericPassword,
+                kSecAttrAccount: keyName,
+                kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+                kSecAttrSynchronizable: true,
+                kSecValueData: password,
+                kSecUseAuthenticationContext: context,
+            ]
+            if service != nil {
+                query[kSecAttrService] = service
+            }
+            if label != nil {
+                query[kSecAttrLabel] = label
+            }
+            if comment != nil {
+                query[kSecAttrComment] = comment
+            }
+        } else {
+            query = [
                 kSecClass: kSecClassGenericPassword,
                 kSecAttrAccount: keyName,
                 kSecAttrAccessControl: makeAccessControl(
@@ -524,9 +598,10 @@ struct Secret {
                 ),
                 kSecValueData: password,
                 kSecUseAuthenticationContext: context,
-            ] as CFDictionary
+            ]
+        }
 
-        let status = SecItemAdd(query, nil)
+        let status = SecItemAdd(query as CFDictionary, nil)
 
         guard status == errSecSuccess else {
             throw KeychainError(status: status)
@@ -536,17 +611,19 @@ struct Secret {
     func exists() throws -> Bool {
         let context = LAContext()
         context.interactionNotAllowed = true
-        let query =
-            [
-                kSecClass: kSecClassGenericPassword,
-                kSecAttrAccount: keyName,
-                kSecMatchLimit: kSecMatchLimitOne,
-                kSecReturnAttributes: true,
-                kSecUseAuthenticationContext: context,
-            ] as CFDictionary
+        var query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: keyName,
+            kSecMatchLimit: kSecMatchLimitOne,
+            kSecReturnAttributes: true,
+            kSecUseAuthenticationContext: context,
+        ]
+        if isSynchronizable {
+            query[kSecAttrSynchronizable] = true
+        }
 
         var result: AnyObject?
-        let status = SecItemCopyMatching(query, &result)
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
 
         if status == errSecItemNotFound {
             return false
@@ -567,17 +644,19 @@ struct Secret {
     }
 
     func load(context: LAContext) throws -> String {
-        let query =
-            [
-                kSecClass: kSecClassGenericPassword,
-                kSecAttrAccount: keyName,
-                kSecMatchLimit: kSecMatchLimitOne,
-                kSecReturnData: true,
-                kSecUseAuthenticationContext: context,
-            ] as CFDictionary
+        var query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: keyName,
+            kSecMatchLimit: kSecMatchLimitOne,
+            kSecReturnData: true,
+            kSecUseAuthenticationContext: context,
+        ]
+        if isSynchronizable {
+            query[kSecAttrSynchronizable] = true
+        }
 
         var result: CFTypeRef?
-        let status = SecItemCopyMatching(query, &result)
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
 
         guard status == errSecSuccess else {
             throw KeychainError(status: status)
@@ -593,14 +672,16 @@ struct Secret {
     }
 
     func delete(context: LAContext) throws {
-        let query =
-            [
-                kSecClass: kSecClassGenericPassword,
-                kSecAttrAccount: keyName,
-                kSecUseAuthenticationContext: context,
-            ] as CFDictionary
+        var query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: keyName,
+            kSecUseAuthenticationContext: context,
+        ]
+        if isSynchronizable {
+            query[kSecAttrSynchronizable] = true
+        }
 
-        let status = SecItemDelete(query)
+        let status = SecItemDelete(query as CFDictionary)
 
         guard status == errSecSuccess else {
             throw KeychainError(status: status)

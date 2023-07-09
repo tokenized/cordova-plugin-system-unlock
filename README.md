@@ -28,7 +28,7 @@ This fork has been developed to support the
 recommended over the original
 [`cordova-plugin-fingerprint-aio`](https://github.com/niklasmerz/cordova-plugin-fingerprint-aio#readme)
 unless your exact needs happen to match ours. Currently the only stored secret
-configurations that are fully implemented and tested are these two:
+configurations that are fully implemented and tested are these:
 
 - `{scope: 'activeSystemLock', lockBehavior: 'lockWithDevice'}`: A secret which
   is accessible to the app whenever the device is unlocked, and gets deleted if
@@ -43,6 +43,16 @@ configurations that are fully implemented and tested are these two:
   deleted if the user turns off the system password/PIN/pattern. The secret
   never leaves the device it’s created on (not saved to system backups, and
   never transferred, restored, or synced to other devices).
+- (iOS only) `{scope: 'sync', lockBehavior: 'lockAfterUse'}`: A secret which is
+  saved in iCloud Keychain (synced to all devices, end-to-end encrypted). For
+  this to work, iCloud must be signed in on the device (which can be checked:
+  `await window.SystemUnlock.isiCloudLoggedIn()`), and the “Passwords and
+  Keychain” feature must be turned on in iCloud settings, which can not be
+  checked programmatically (you must prompt the user to check). If it isn’t
+  turned on, the secret will be saved locally (and also in the system backup, if
+  enabled), but won’t be synced to other devices. Setting `lockAfterUse` causes
+  the plugin to challenge the user to unlock with Face ID, Touch ID, or the
+  system passcode every time the secret is accessed.
 
 ## Acknowledgements
 
