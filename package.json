@@ -1,6 +1,6 @@
 {
   "name": "@tokenized/cordova-plugin-system-unlock",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Cordova plugin for managing secrets protected by iOS/Android biometrics and passcode",
   "cordova": {
     "id": "@tokenized/cordova-plugin-system-unlock",
